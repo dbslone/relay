@@ -1,5 +1,5 @@
 {
-  "name": "relay-compiler",
+  "name": "@dbslone/relay-compiler",
   "description": "A compiler tool for building GraphQL-driven applications.",
   "version": "1.2.0",
   "keywords": [
