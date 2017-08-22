@@ -1,5 +1,5 @@
 {
-  "name": "relay-runtime",
+  "name": "@dbslone/relay-runtime",
   "description": "A core runtime for building GraphQL-driven applications.",
   "version": "1.2.0",
   "keywords": [
