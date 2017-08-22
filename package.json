@@ -69,7 +69,6 @@
     "webpack-stream": "3.2.0",
     "yargs": "7.0.2"
   },
-  "private": true,
   "devEngines": {
     "node": ">=4.x",
     "npm": ">=2.x"
