@@ -16,7 +16,7 @@
     "fbjs": "^1.0.0",
     "nullthrows": "^1.1.0",
     "prop-types": "^15.5.8",
-    "relay-runtime": "2.0.0-rc.1"
+    "@dbslone/relay-runtime": "2.0.0-rc.1"
   },
   "peerDependencies": {
     "react": "^16.5.0"
