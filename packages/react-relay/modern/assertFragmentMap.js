@@ -1,11 +1,10 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule assertFragmentMap
- * @flow
+ * @flow strict-local
  * @format
  */
 
@@ -13,8 +12,8 @@
 
 const invariant = require('invariant');
 
-import type {GeneratedNodeMap} from 'ReactRelayTypes';
-import type {GraphQLTaggedNode} from 'RelayModernGraphQLTag';
+import type {GeneratedNodeMap} from './ReactRelayTypes';
+import type {GraphQLTaggedNode} from 'relay-runtime';
 
 /**
  * Fail fast if the user supplies invalid fragments as input.

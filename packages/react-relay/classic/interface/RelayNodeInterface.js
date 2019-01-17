@@ -1,20 +1,19 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule RelayNodeInterface
  * @flow
  * @format
  */
 
 'use strict';
 
-const forEachRootCallArg = require('forEachRootCallArg');
+const forEachRootCallArg = require('../query/forEachRootCallArg');
 const invariant = require('invariant');
 
-import type RelayQuery from 'RelayQuery';
+import type RelayQuery from '../query/RelayQuery';
 
 export type PayloadResult = {
   result: mixed,

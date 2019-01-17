@@ -1,10 +1,10 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @flow
+ * @flow strict-local
  * @format
  */
 
@@ -12,7 +12,7 @@
 
 const React = require('React');
 
-const {graphql, createPaginationContainer} = require('ReactRelayPublic');
+const {graphql, createPaginationContainer} = require('../ReactRelayPublic');
 
 /**
  * Verifies that normal prop type checking, as well as the methods proxying Relay does, is
@@ -136,20 +136,20 @@ module.exports = {
      * upgrading Flow's React support are documented at
      * https://fburl.com/eq7bs81w */
     class ProxyChecker extends React.PureComponent {
-      _fooRef: ?Foo;
+      _fooRef: ?FooComponent;
       getString(): string {
         const ok = this._fooRef ? this._fooRef.getNum() : 'default'; // legit
 
-        /** $ShouldBeFlowExpectedError: Foo does not have `missingMethod` **/
+        /** $FlowExpectedError: Foo does not have `missingMethod` **/
         const bad = this._fooRef ? this._fooRef.missingMethod() : 'default';
 
-        /** $ShouldBeFlowExpectedError: Foo `getNum` gives number, but `getString` assumes string  **/
+        /** $FlowExpectedError: Foo `getNum` gives number, but `getString` assumes string  **/
         return bad ? 'not good' : ok;
       }
       render() {
         return (
           <Foo
-            ref={ref => {
+            componentRef={ref => {
               this._fooRef = ref;
             }}
             requiredProp="bar"

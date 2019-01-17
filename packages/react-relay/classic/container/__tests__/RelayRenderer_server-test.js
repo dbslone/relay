@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -10,18 +10,18 @@
 
 'use strict';
 
-jest.enableAutomock();
+jest
+  .mock('../../query-config/RelayQueryConfig')
+  .mock('../../store/RelayEnvironment');
 
 require('configureForRelayOSS');
 
-jest.unmock('RelayRenderer');
-
 const React = require('React');
 const ReactDOMServer = require('ReactDOMServer');
-const RelayClassic = require('RelayClassic');
-const RelayEnvironment = require('RelayEnvironment');
-const RelayQueryConfig = require('RelayQueryConfig');
-const RelayRenderer = require('RelayRenderer');
+const Relay = require('../../RelayPublic');
+const RelayEnvironment = require('../../store/RelayEnvironment');
+const RelayQueryConfig = require('../../query-config/RelayQueryConfig');
+const RelayRenderer = require('../RelayRenderer');
 
 describe('RelayRenderer', function() {
   let MockContainer;
@@ -37,7 +37,7 @@ describe('RelayRenderer', function() {
         return <div />;
       }
     }
-    MockContainer = RelayClassic.createContainer(MockComponent, {
+    MockContainer = Relay.createContainer(MockComponent, {
       fragments: {},
     });
 

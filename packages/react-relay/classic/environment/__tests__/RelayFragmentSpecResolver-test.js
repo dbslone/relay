@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -12,17 +12,17 @@
 
 jest.dontMock('GraphQLStoreChangeEmitter').mock('relayUnstableBatchedUpdates');
 
-const RelayEnvironment = require('RelayEnvironment');
-const RelayFragmentSpecResolver = require('RelayFragmentSpecResolver');
-const {ROOT_ID} = require('RelayStoreConstants');
+const RelayEnvironment = require('../../store/RelayEnvironment');
+const RelayFragmentSpecResolver = require('../RelayFragmentSpecResolver');
+const {ROOT_ID} = require('../../store/RelayStoreConstants');
 const RelayTestUtils = require('RelayTestUtils');
-const generateRQLFieldAlias = require('generateRQLFieldAlias');
+const generateRQLFieldAlias = require('../../query/generateRQLFieldAlias');
 const {
   graphql,
   getClassicFragment,
   getClassicOperation,
-} = require('RelayGraphQLTag');
-const {createOperationSelector} = require('RelayOperationSelector');
+} = require('../../query/RelayGraphQLTag');
+const {createOperationSelector} = require('../RelayOperationSelector');
 
 describe('RelayFragmentSpecResolver', () => {
   let UserFragment;
@@ -469,7 +469,7 @@ describe('RelayFragmentSpecResolver', () => {
             id: '4',
             name: 'Zuck',
             profilePicture: {
-              __dataID__: jasmine.any(String),
+              __dataID__: expect.any(String),
               uri: 'https://4.jpg',
             },
           },
@@ -491,7 +491,7 @@ describe('RelayFragmentSpecResolver', () => {
             id: '4',
             name: 'Zuck',
             profilePicture: {
-              __dataID__: jasmine.any(String),
+              __dataID__: expect.any(String),
               uri: 'https://zuck.jpg',
             },
           },
@@ -820,7 +820,7 @@ describe('RelayFragmentSpecResolver', () => {
               id: '4',
               name: 'Zuck',
               profilePicture: {
-                __dataID__: jasmine.any(String),
+                __dataID__: expect.any(String),
                 uri: 'https://4.jpg',
               },
             },
@@ -844,7 +844,7 @@ describe('RelayFragmentSpecResolver', () => {
               id: '4',
               name: 'Zuck',
               profilePicture: {
-                __dataID__: jasmine.any(String),
+                __dataID__: expect.any(String),
                 uri: 'https://zuck.jpg',
               },
             },

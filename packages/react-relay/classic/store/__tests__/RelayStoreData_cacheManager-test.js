@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -10,21 +10,21 @@
 
 'use strict';
 
-jest.enableAutomock();
+jest.mock('../../legacy/store/generateClientID');
 
 require('configureForRelayOSS');
 
-jest.unmock('GraphQLRange').unmock('GraphQLSegment');
-
-const GraphQLMutatorConstants = require('GraphQLMutatorConstants');
-const RelayClassic = require('RelayClassic');
-const {ConnectionInterface} = require('RelayRuntime');
+const Relay = require('../../RelayPublic');
 const RelayMockCacheManager = require('RelayMockCacheManager');
-const RelayMutationType = require('RelayMutationType');
-const RelayStoreData = require('RelayStoreData');
+const RelayStoreData = require('../RelayStoreData');
 const RelayTestUtils = require('RelayTestUtils');
+const {
+  ConnectionInterface,
+  RangeOperations,
+  MutationTypes,
+} = require('relay-runtime');
 
-const transformRelayQueryPayload = require('transformRelayQueryPayload');
+const transformRelayQueryPayload = require('../../traversal/transformRelayQueryPayload');
 
 describe('RelayStoreData', function() {
   let cacheManager;
@@ -111,7 +111,7 @@ describe('RelayStoreData', function() {
   });
 
   it('caches node metadata', () => {
-    const query = getNode(RelayClassic.QL`query{node(id:"123"){id}}`);
+    const query = getNode(Relay.QL`query{node(id:"123"){id}}`);
     const response = {
       node: {
         __typename: 'User',
@@ -136,7 +136,7 @@ describe('RelayStoreData', function() {
   });
 
   it('caches custom root calls', () => {
-    const query = getNode(RelayClassic.QL`query{username(name:"yuzhi"){id}}`);
+    const query = getNode(Relay.QL`query{username(name:"yuzhi"){id}}`);
     const response = {
       username: {
         __typename: 'User',
@@ -166,7 +166,7 @@ describe('RelayStoreData', function() {
   });
 
   it('caches nodes with client IDs', () => {
-    const query = getNode(RelayClassic.QL`query{viewer{isFbEmployee}}`);
+    const query = getNode(Relay.QL`query{viewer{isFbEmployee}}`);
     const response = {
       viewer: {
         __typename: 'User',
@@ -192,7 +192,7 @@ describe('RelayStoreData', function() {
 
   it('caches linked records', () => {
     const query = getNode(
-      RelayClassic.QL`
+      Relay.QL`
       query {
         node(id:"123") {
           id
@@ -241,7 +241,7 @@ describe('RelayStoreData', function() {
 
   it('caches plural fields', () => {
     const query = getNode(
-      RelayClassic.QL`
+      Relay.QL`
       query {
         node(id:"123") {
           id
@@ -290,7 +290,7 @@ describe('RelayStoreData', function() {
 
   it('caches connection fields', () => {
     const query = getNode(
-      RelayClassic.QL`
+      Relay.QL`
       query {
         node(id:"123") {
           id
@@ -387,7 +387,7 @@ describe('RelayStoreData', function() {
 
   it('caches connection fields with no edges', () => {
     const query = getNode(
-      RelayClassic.QL`
+      Relay.QL`
       query {
         node(id:"123") {
           id
@@ -445,9 +445,7 @@ describe('RelayStoreData', function() {
   });
 
   it('caches simple mutations', () => {
-    const query = getNode(
-      RelayClassic.QL`query{node(id:"123"){id,doesViewerLike}}`,
-    );
+    const query = getNode(Relay.QL`query{node(id:"123"){id,doesViewerLike}}`);
     const response = {
       node: {
         __typename: 'User',
@@ -459,7 +457,7 @@ describe('RelayStoreData', function() {
     const {mutationWriter} = cacheManager.mocks;
 
     const mutationQuery = getNode(
-      RelayClassic.QL`
+      Relay.QL`
       mutation {
         feedbackLike(input:$input) {
           clientMutationId
@@ -497,7 +495,7 @@ describe('RelayStoreData', function() {
 
   it('caches mutation that inserts an edge', () => {
     const query = getNode(
-      RelayClassic.QL`
+      Relay.QL`
       query {
         node(id:"123") {
           id
@@ -544,15 +542,15 @@ describe('RelayStoreData', function() {
 
     const configs = [
       {
-        type: RelayMutationType.RANGE_ADD,
+        type: MutationTypes.RANGE_ADD,
         connectionName: 'comments',
         edgeName: 'feedbackCommentEdge',
-        rangeBehaviors: {'': GraphQLMutatorConstants.PREPEND},
+        rangeBehaviors: {'': RangeOperations.PREPEND},
       },
     ];
 
     const mutationQuery = getNode(
-      RelayClassic.QL`
+      Relay.QL`
       mutation {
         commentCreate(input:$input) {
           clientMutationId
@@ -624,7 +622,7 @@ describe('RelayStoreData', function() {
 
   it('caches mutation that deletes an edge', () => {
     const query = getNode(
-      RelayClassic.QL`
+      Relay.QL`
       query {
         node(id:"123") {
           id
@@ -671,14 +669,14 @@ describe('RelayStoreData', function() {
 
     const configs = [
       {
-        type: RelayMutationType.RANGE_DELETE,
+        type: MutationTypes.RANGE_DELETE,
         pathToConnection: ['feedback', 'comments'],
         deletedIDFieldName: 'deletedCommentId',
       },
     ];
 
     const mutationQuery = getNode(
-      RelayClassic.QL`
+      Relay.QL`
       mutation {
         commentDelete(input:$input) {
           clientMutationId

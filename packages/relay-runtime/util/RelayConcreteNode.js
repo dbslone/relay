@@ -1,146 +1,50 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule RelayConcreteNode
- * @flow
+ * @flow strict-local
  * @format
  */
 
 'use strict';
 
-export type ConcreteArgument = ConcreteLiteral | ConcreteVariable;
-export type ConcreteArgumentDefinition =
-  | ConcreteLocalArgument
-  | ConcreteRootArgument;
+import type {
+  NormalizationOperation,
+  NormalizationSplitOperation,
+} from './NormalizationNode';
+import type {ReaderFragment} from './ReaderNode';
+
 /**
- * Represents a single ConcreteRoot along with metadata for processing it at
- * runtime. The persisted `id` (or `text`) can be used to fetch the query,
- * the `fragment` can be used to read the root data (masking data from child
- * fragments), and the `query` can be used to normalize server responses.
- *
- * NOTE: The use of "batch" in the name is intentional, as this wrapper around
- * the ConcreteRoot will provide a place to store multiple concrete nodes that
- * are part of the same batch, e.g. in the case of deferred nodes or
- * for streaming connections that are represented as distinct concrete roots but
- * are still conceptually tied to one source query.
+ * Represents a common GraphQL request with `text` (or persisted `id`) can be
+ * used to execute it, an `operation` containing information to normalize the
+ * results, and a `fragment` derived from that operation to read the response
+ * data (masking data from child fragments).
  */
-export type ConcreteBatch = {
-  kind: 'Batch',
-  fragment: ConcreteFragment,
-  id: ?string,
-  metadata: {[key: string]: mixed},
-  name: string,
-  query: ConcreteRoot,
-  text: ?string,
-};
-export type ConcreteCondition = {
-  kind: 'Condition',
-  passingValue: boolean,
-  condition: string,
-  selections: Array<ConcreteSelection>,
-};
-export type ConcreteField = ConcreteScalarField | ConcreteLinkedField;
-export type ConcreteFragment = {
-  argumentDefinitions: Array<ConcreteArgumentDefinition>,
-  kind: 'Fragment',
-  metadata: ?{[key: string]: mixed},
-  name: string,
-  selections: Array<ConcreteSelection>,
-  type: string,
-};
-export type ConcreteFragmentSpread = {
-  args: ?Array<ConcreteArgument>,
-  kind: 'FragmentSpread',
-  name: string,
-};
-export type ConcreteHandle = ConcreteScalarHandle | ConcreteLinkedHandle;
-export type ConcreteRootArgument = {
-  kind: 'RootArgument',
-  name: string,
-  type: ?string,
-};
-export type ConcreteInlineFragment = {
-  kind: 'InlineFragment',
-  selections: Array<ConcreteSelection>,
-  type: string,
-};
-export type ConcreteLinkedField = {
-  alias: ?string,
-  args: ?Array<ConcreteArgument>,
-  concreteType: ?string,
-  kind: 'LinkedField',
-  name: string,
-  plural: boolean,
-  selections: Array<ConcreteSelection>,
-  storageKey: ?string,
-};
-export type ConcreteLinkedHandle = {
-  alias: ?string,
-  args: ?Array<ConcreteArgument>,
-  kind: 'LinkedHandle',
-  name: string,
-  handle: string,
-  key: string,
-  filters: ?Array<string>,
-};
-export type ConcreteLiteral = {
-  kind: 'Literal',
-  name: string,
-  type: ?string,
-  value: mixed,
-};
-export type ConcreteLocalArgument = {
-  defaultValue: mixed,
-  kind: 'LocalArgument',
-  name: string,
-  type: string,
-};
-export type ConcreteNode =
-  | ConcreteCondition
-  | ConcreteLinkedField
-  | ConcreteFragment
-  | ConcreteInlineFragment
-  | ConcreteRoot;
-export type ConcreteRoot = {
-  argumentDefinitions: Array<ConcreteLocalArgument>,
-  kind: 'Root',
-  name: string,
-  operation: 'mutation' | 'query' | 'subscription',
-  selections: Array<ConcreteSelection>,
-};
-export type ConcreteScalarField = {
-  alias: ?string,
-  args: ?Array<ConcreteArgument>,
-  kind: 'ScalarField',
-  name: string,
-  storageKey: ?string,
-};
-export type ConcreteScalarHandle = {
-  alias: ?string,
-  args: ?Array<ConcreteArgument>,
-  kind: 'ScalarHandle',
-  name: string,
-  handle: string,
-  key: string,
-  filters: ?Array<string>,
-};
-export type ConcreteSelection =
-  | ConcreteCondition
-  | ConcreteField
-  | ConcreteFragmentSpread
-  | ConcreteHandle
-  | ConcreteInlineFragment;
-export type ConcreteVariable = {
-  kind: 'Variable',
-  name: string,
-  type: ?string,
-  variableName: string,
-};
-export type ConcreteSelectableNode = ConcreteFragment | ConcreteRoot;
-export type GeneratedNode = ConcreteBatch | ConcreteFragment;
+export type ConcreteRequest = {|
+  +kind: 'Request',
+  +fragment: ReaderFragment,
+  +operation: NormalizationOperation,
+  +params: RequestParameters,
+|};
+
+/**
+ * Contains the `text` (or persisted `id`) required for executing a common
+ * GraphQL request.
+ */
+export type RequestParameters = {|
+  +name: string,
+  +operationKind: 'mutation' | 'query' | 'subscription',
+  +id: ?string,
+  +text: ?string,
+  +metadata: {[key: string]: mixed},
+|};
+
+export type GeneratedNode =
+  | ConcreteRequest
+  | ReaderFragment
+  | NormalizationSplitOperation;
 
 const RelayConcreteNode = {
   CONDITION: 'Condition',
@@ -151,10 +55,13 @@ const RelayConcreteNode = {
   LINKED_HANDLE: 'LinkedHandle',
   LITERAL: 'Literal',
   LOCAL_ARGUMENT: 'LocalArgument',
-  ROOT: 'Root',
+  MATCH_FIELD: 'MatchField',
+  OPERATION: 'Operation',
+  REQUEST: 'Request',
   ROOT_ARGUMENT: 'RootArgument',
   SCALAR_FIELD: 'ScalarField',
   SCALAR_HANDLE: 'ScalarHandle',
+  SPLIT_OPERATION: 'SplitOperation',
   VARIABLE: 'Variable',
 };
 

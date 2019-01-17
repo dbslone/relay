@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -14,9 +14,9 @@ jest.mock('ReactDOM', () => ({}));
 
 const React = require('React');
 const ReactTestRenderer = require('ReactTestRenderer');
-const ReactRelayRefetchContainer = require('ReactRelayRefetchContainer');
-const ReactRelayFragmentMockRenderer = require('ReactRelayFragmentMockRenderer');
-const ReactRelayFragmentContainer = require('ReactRelayFragmentContainer');
+const ReactRelayRefetchContainer = require('../ReactRelayRefetchContainer');
+const ReactRelayFragmentMockRenderer = require('../ReactRelayFragmentMockRenderer');
+const ReactRelayFragmentContainer = require('../ReactRelayFragmentContainer');
 const RelayModernMockEnvironment = require('RelayModernMockEnvironment');
 
 describe('ReactRelayFragmentMockRenderer', () => {

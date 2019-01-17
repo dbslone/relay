@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -29,7 +29,7 @@ import type {
 const RelayParser = require('RelayParser');
 const GraphQLIRPrinter = require('GraphQLIRPrinter');
 const RelayTestSchema = require('RelayTestSchema');
-const getGoldenMatchers = require('getGoldenMatchers');
+const {generateTestsFromFixtures} = require('RelayModernTestUtils');
 const {visit} = require('GraphQLIRVisitor');
 
 type VisitNodeWithName =
@@ -42,19 +42,18 @@ type VisitNodeWithName =
   | ArgumentDefinition;
 
 describe('GraphQLIRVisitor', () => {
-  beforeEach(() => {
-    expect.extend(getGoldenMatchers(__filename));
-  });
-
-  it('visits and does nothing with each node', () => {
-    expect('fixtures/visitor/no-op-visit').toMatchGolden(text => {
+  generateTestsFromFixtures(
+    `${__dirname}/fixtures/visitor/no-op-visit`,
+    text => {
       const ast = RelayParser.parse(RelayTestSchema, text);
       const sameAst = ast.map(fragment => visit(fragment, {}));
       return sameAst.map(doc => GraphQLIRPrinter.print(doc)).join('\n');
-    });
-  });
-  it('visits and mutates each type of node', () => {
-    expect('fixtures/visitor/mutate-visit').toMatchGolden(text => {
+    },
+  );
+
+  generateTestsFromFixtures(
+    `${__dirname}/fixtures/visitor/mutate-visit`,
+    text => {
       const ast = RelayParser.parse(RelayTestSchema, text);
       const mutateNameVisitor = {
         leave: (node: VisitNodeWithName) => {
@@ -71,8 +70,10 @@ describe('GraphQLIRVisitor', () => {
           Directive: mutateNameVisitor,
           Fragment: mutateNameVisitor,
           FragmentSpread: mutateNameVisitor,
+          MatchBranch: mutateNameVisitor,
           ImportArgumentDefinition: mutateNameVisitor,
           LinkedField: mutateNameVisitor,
+          MatchField: mutateNameVisitor,
           LocalArgumentDefinition: mutateNameVisitor,
           Root: mutateNameVisitor,
           ScalarField: mutateNameVisitor,
@@ -97,7 +98,9 @@ describe('GraphQLIRVisitor', () => {
             leave(node: Literal) {
               return {
                 ...node,
-                value: String(node.value) + '_mutated',
+                value: Array.isArray(node.value)
+                  ? node.value.map(item => String(node.value) + '_mutated')
+                  : String(node.value) + '_mutated',
               };
             },
           },
@@ -113,6 +116,6 @@ describe('GraphQLIRVisitor', () => {
       );
 
       return mutatedAst.map(doc => GraphQLIRPrinter.print(doc)).join('\n');
-    });
-  });
+    },
+  );
 });

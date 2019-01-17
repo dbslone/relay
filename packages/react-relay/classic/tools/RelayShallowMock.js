@@ -1,10 +1,9 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule RelayShallowMock
  * @flow
  * @format
  */
@@ -16,7 +15,7 @@
  * Adds `unwrap` to the container that returns the component to test.
  *
  * @example
- * jest.mock('Relay', () => require('RelayShallowMock'));
+ * jest.mock('Relay', () => require('./RelayShallowMock'));
  * const renderer = require('ReactTestRenderer');
  * const MyContainer = require('MyContainer');
  *
@@ -37,9 +36,12 @@
 'use strict';
 
 const React = require('React');
-const Relay = (require: any).requireActual('RelayClassic');
+const Relay = (require: any).requireActual('../RelayPublic');
 
-import type {RelayContainerSpec, RelayLazyContainer} from 'RelayContainer';
+import type {
+  RelayContainerSpec,
+  RelayLazyContainer,
+} from '../container/RelayContainer';
 
 const RelayShallowMock = {
   createContainer: (
@@ -49,10 +51,6 @@ const RelayShallowMock = {
     return class extends React.Component<{}> {
       render() {
         return React.createElement(
-          /* $FlowFixMe(>=0.53.0) This comment suppresses
-           * an error when upgrading Flow's support for React. Common errors
-           * found when upgrading Flow's React support are documented at
-           * https://fburl.com/eq7bs81w */
           `Relay(${component.displayName || component.name || 'Unknown'})`,
         );
       }

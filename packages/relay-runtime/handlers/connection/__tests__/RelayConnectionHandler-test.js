@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -12,19 +12,18 @@
 
 require('configureForRelayOSS');
 
-const RelayConnectionHandler = require('RelayConnectionHandler');
-const RelayInMemoryRecordSource = require('RelayInMemoryRecordSource');
-const RelayMarkSweepStore = require('RelayMarkSweepStore');
-const RelayRecordSourceMutator = require('RelayRecordSourceMutator');
-const RelayRecordSourceProxy = require('RelayRecordSourceProxy');
-const RelayResponseNormalizer = require('RelayResponseNormalizer');
-const RelayStoreUtils = require('RelayStoreUtils');
+const RelayConnectionHandler = require('../RelayConnectionHandler');
+const RelayInMemoryRecordSource = require('../../../store/RelayInMemoryRecordSource');
+const RelayModernStore = require('../../../store/RelayModernStore');
+const RelayRecordSourceMutator = require('../../../mutations/RelayRecordSourceMutator');
+const RelayRecordSourceProxy = require('../../../mutations/RelayRecordSourceProxy');
+const RelayResponseNormalizer = require('../../../store/RelayResponseNormalizer');
+const RelayStoreUtils = require('../../../store/RelayStoreUtils');
 const RelayModernTestUtils = require('RelayModernTestUtils');
-const RelayConnectionInterface = require('RelayConnectionInterface');
+const RelayConnectionInterface = require('../RelayConnectionInterface');
 
-const formatStorageKey = require('formatStorageKey');
-const getRelayHandleKey = require('getRelayHandleKey');
-const simpleClone = require('simpleClone');
+const getRelayHandleKey = require('../../../util/getRelayHandleKey');
+const simpleClone = require('../../../util/simpleClone');
 
 const {
   ID_KEY,
@@ -33,6 +32,7 @@ const {
   ROOT_ID,
   ROOT_TYPE,
   TYPENAME_KEY,
+  getStableStorageKey,
 } = RelayStoreUtils;
 const {
   END_CURSOR,
@@ -57,7 +57,7 @@ describe('RelayConnectionHandler', () => {
       baseSource,
       {
         dataID: ROOT_ID,
-        node: ConnectionQuery,
+        node: ConnectionQuery.operation,
         variables,
       },
       payload,
@@ -154,15 +154,15 @@ describe('RelayConnectionHandler', () => {
       const args = {first: 10, orderby: ['first name']};
       const handleKey =
         getRelayHandleKey('connection', 'ConnectionQuery_friends', 'friends') +
-        '{"orderby":["first name"]}';
+        '(orderby:["first name"])';
       const payload = {
         args,
         dataID: '4',
-        fieldKey: formatStorageKey('friends', args),
+        fieldKey: getStableStorageKey('friends', args),
         handleKey,
       };
       RelayConnectionHandler.update(proxy, payload);
-      const store = new RelayMarkSweepStore(baseSource);
+      const store = new RelayModernStore(baseSource);
       store.publish(sinkSource);
       baseData = simpleClone(baseData);
       baseSource = new RelayInMemoryRecordSource(baseData);
@@ -200,8 +200,8 @@ describe('RelayConnectionHandler', () => {
         [TYPENAME_KEY]: 'FriendsConnection',
         edges: {
           [REFS_KEY]: [
-            'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:0',
-            'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
+            'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:0',
+            'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
             'newedge',
           ],
         },
@@ -215,8 +215,8 @@ describe('RelayConnectionHandler', () => {
         [TYPENAME_KEY]: 'FriendsConnection',
         edges: {
           [REFS_KEY]: [
-            'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:0',
-            'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
+            'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:0',
+            'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
             'newedge',
           ],
         },
@@ -230,9 +230,9 @@ describe('RelayConnectionHandler', () => {
         [TYPENAME_KEY]: 'FriendsConnection',
         edges: {
           [REFS_KEY]: [
-            'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:0',
+            'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:0',
             'newedge',
-            'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
+            'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
           ],
         },
       });
@@ -285,15 +285,15 @@ describe('RelayConnectionHandler', () => {
       const args = {first: 10, orderby: ['first name']};
       const handleKey =
         getRelayHandleKey('connection', 'ConnectionQuery_friends', 'friends') +
-        '{"orderby":["first name"]}';
+        '(orderby:["first name"])';
       const payload = {
         args,
         dataID: '4',
-        fieldKey: formatStorageKey('friends', args),
+        fieldKey: getStableStorageKey('friends', args),
         handleKey,
       };
       RelayConnectionHandler.update(proxy, payload);
-      const store = new RelayMarkSweepStore(baseSource);
+      const store = new RelayModernStore(baseSource);
       store.publish(sinkSource);
       baseData = simpleClone(baseData);
       baseSource = new RelayInMemoryRecordSource(baseData);
@@ -332,8 +332,8 @@ describe('RelayConnectionHandler', () => {
         edges: {
           [REFS_KEY]: [
             'newedge',
-            'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:0',
-            'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
+            'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:0',
+            'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
           ],
         },
       });
@@ -351,8 +351,8 @@ describe('RelayConnectionHandler', () => {
         edges: {
           [REFS_KEY]: [
             'newedge',
-            'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:0',
-            'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
+            'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:0',
+            'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
           ],
         },
       });
@@ -365,9 +365,9 @@ describe('RelayConnectionHandler', () => {
         [TYPENAME_KEY]: 'FriendsConnection',
         edges: {
           [REFS_KEY]: [
-            'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:0',
+            'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:0',
             'newedge',
-            'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
+            'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
           ],
         },
       });
@@ -419,15 +419,15 @@ describe('RelayConnectionHandler', () => {
       const args = {first: 10, orderby: ['first name']};
       const handleKey =
         getRelayHandleKey('connection', 'ConnectionQuery_friends', 'friends') +
-        '{"orderby":["first name"]}';
+        '(orderby:["first name"])';
       const payload = {
         args,
         dataID: '4',
-        fieldKey: formatStorageKey('friends', args),
+        fieldKey: getStableStorageKey('friends', args),
         handleKey,
       };
       RelayConnectionHandler.update(proxy, payload);
-      const store = new RelayMarkSweepStore(baseSource);
+      const store = new RelayModernStore(baseSource);
       store.publish(sinkSource);
       baseData = simpleClone(baseData);
       baseSource = new RelayInMemoryRecordSource(baseData);
@@ -452,8 +452,8 @@ describe('RelayConnectionHandler', () => {
     it('deletes the matching edge from the connection', () => {
       RelayConnectionHandler.deleteNode(connection, '1');
       expect(baseData[connectionID].edges[REFS_KEY]).toEqual([
-        'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:0',
-        'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
+        'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:0',
+        'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
       ]);
       expect(sinkData).toEqual({
         [connectionID]: {
@@ -461,7 +461,7 @@ describe('RelayConnectionHandler', () => {
           [TYPENAME_KEY]: 'FriendsConnection',
           edges: {
             [REFS_KEY]: [
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
             ],
           },
         },
@@ -555,11 +555,11 @@ describe('RelayConnectionHandler', () => {
       const args = {first: 10, orderby: ['first name']};
       const handleKey =
         getRelayHandleKey('connection', 'ConnectionQuery_friends', 'friends') +
-        '{"orderby":["first name"]}';
+        '(orderby:["first name"])';
       const payload = {
         args,
         dataID: '4',
-        fieldKey: formatStorageKey('friends', args),
+        fieldKey: getStableStorageKey('friends', args),
         handleKey,
       };
       RelayConnectionHandler.update(proxy, payload);
@@ -570,34 +570,34 @@ describe('RelayConnectionHandler', () => {
           [TYPENAME_KEY]: 'User',
           [payload.handleKey]: {
             [REF_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])',
           },
         },
-        'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}': {
+        'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])': {
           [ID_KEY]:
-            'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}',
+            'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])',
           [TYPENAME_KEY]: 'FriendsConnection',
           edges: {
             [REFS_KEY]: [
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:0',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:0',
             ],
           },
           [PAGE_INFO]: {
             [REF_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
           },
           __connection_next_edge_index: 1,
         },
-        'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:0': {
+        'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:0': {
           [ID_KEY]:
-            'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:0',
+            'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:0',
           [TYPENAME_KEY]: 'FriendsEdge',
           cursor: 'cursor:1',
           node: {[REF_KEY]: '1'},
         },
-        'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo': {
+        'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo': {
           [ID_KEY]:
-            'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+            'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
           [TYPENAME_KEY]: 'PageInfo',
           [END_CURSOR]: 'cursor:1',
           [HAS_NEXT_PAGE]: true,
@@ -637,11 +637,11 @@ describe('RelayConnectionHandler', () => {
       const args = {first: 10, orderby: ['first name']};
       const handleKey =
         getRelayHandleKey('connection', 'ConnectionQuery_friends', 'friends') +
-        '{"orderby":["first name"]}';
+        '(orderby:["first name"])';
       const payload = {
         args,
         dataID: '4',
-        fieldKey: formatStorageKey('friends', args),
+        fieldKey: getStableStorageKey('friends', args),
         handleKey,
       };
       RelayConnectionHandler.update(proxy, payload);
@@ -652,34 +652,34 @@ describe('RelayConnectionHandler', () => {
           [TYPENAME_KEY]: 'User',
           [payload.handleKey]: {
             [REF_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])',
           },
         },
-        'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}': {
+        'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])': {
           [ID_KEY]:
-            'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}',
+            'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])',
           [TYPENAME_KEY]: 'FriendsConnection',
           edges: {
             [REFS_KEY]: [
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:0',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:0',
             ],
           },
           [PAGE_INFO]: {
             [REF_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
           },
           __connection_next_edge_index: 1,
         },
-        'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:0': {
+        'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:0': {
           [ID_KEY]:
-            'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:0',
+            'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:0',
           [TYPENAME_KEY]: 'FriendsEdge',
           cursor: 'cursor:1',
           node: {[REF_KEY]: '1'},
         },
-        'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo': {
+        'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo': {
           [ID_KEY]:
-            'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+            'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
           [TYPENAME_KEY]: 'PageInfo',
           [END_CURSOR]: null,
           [HAS_NEXT_PAGE]: false,
@@ -728,14 +728,14 @@ describe('RelayConnectionHandler', () => {
             'connection',
             'ConnectionQuery_friends',
             'friends',
-          ) + '{"orderby":["first name"]}';
+          ) + '(orderby:["first name"])';
         const payload = {
           dataID: '4',
-          fieldKey: formatStorageKey('friends', args),
+          fieldKey: getStableStorageKey('friends', args),
           handleKey,
         };
         RelayConnectionHandler.update(proxy, payload);
-        const store = new RelayMarkSweepStore(baseSource);
+        const store = new RelayModernStore(baseSource);
         store.publish(sinkSource);
         baseData = simpleClone(baseData);
         baseSource = new RelayInMemoryRecordSource(baseData);
@@ -783,41 +783,41 @@ describe('RelayConnectionHandler', () => {
             'connection',
             'ConnectionQuery_friends',
             'friends',
-          ) + '{"orderby":["first name"]}';
+          ) + '(orderby:["first name"])';
         const payload = {
           args,
           dataID: '4',
-          fieldKey: formatStorageKey('friends', args),
+          fieldKey: getStableStorageKey('friends', args),
           handleKey,
         };
         RelayConnectionHandler.update(proxy, payload);
         expect(sinkData).toEqual({
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])',
             [TYPENAME_KEY]: 'FriendsConnection',
             edges: {
               [REFS_KEY]: [
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:0',
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:0',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
               ],
             },
             pageInfo: {
               [REF_KEY]:
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
             },
             __connection_next_edge_index: 2,
           },
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
             [TYPENAME_KEY]: 'FriendsEdge',
             cursor: 'cursor:2',
             node: {[REF_KEY]: '2'},
           },
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
             [TYPENAME_KEY]: 'PageInfo',
             [END_CURSOR]: 'cursor:2',
             [HAS_NEXT_PAGE]: false,
@@ -863,41 +863,41 @@ describe('RelayConnectionHandler', () => {
             'connection',
             'ConnectionQuery_friends',
             'friends',
-          ) + '{"orderby":["first name"]}';
+          ) + '(orderby:["first name"])';
         const payload = {
           args,
           dataID: '4',
-          fieldKey: formatStorageKey('friends', args),
+          fieldKey: getStableStorageKey('friends', args),
           handleKey,
         };
         RelayConnectionHandler.update(proxy, payload);
         expect(sinkData).toEqual({
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])',
             [TYPENAME_KEY]: 'FriendsConnection',
             edges: {
               [REFS_KEY]: [
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:0',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:0',
               ],
             },
             pageInfo: {
               [REF_KEY]:
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
             },
             __connection_next_edge_index: 2,
           },
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
             [TYPENAME_KEY]: 'FriendsEdge',
             cursor: 'cursor:0',
             node: {[REF_KEY]: '0'},
           },
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
             [TYPENAME_KEY]: 'PageInfo',
             [HAS_PREV_PAGE]: false,
             [START_CURSOR]: 'cursor:0',
@@ -943,43 +943,45 @@ describe('RelayConnectionHandler', () => {
             'connection',
             'ConnectionQuery_friends',
             'friends',
-          ) + '{"orderby":["first name"]}';
+          ) + '(orderby:["first name"])';
         const payload = {
           args,
           dataID: '4',
-          fieldKey: formatStorageKey('friends', args),
+          fieldKey: getStableStorageKey('friends', args),
           handleKey,
         };
         RelayConnectionHandler.update(proxy, payload);
         expect(sinkData).toEqual({
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])',
             [TYPENAME_KEY]: 'FriendsConnection',
             edges: {
               [REFS_KEY]: [
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
               ],
             },
             pageInfo: {
               [REF_KEY]:
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
             },
             __connection_next_edge_index: 2,
           },
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
             [TYPENAME_KEY]: 'FriendsEdge',
             cursor: 'cursor:0',
             node: {[REF_KEY]: '0'},
           },
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
             [TYPENAME_KEY]: 'PageInfo',
             [END_CURSOR]: 'cursor:0',
+            [HAS_PREV_PAGE]: false,
             [HAS_NEXT_PAGE]: true,
+            [START_CURSOR]: 'cursor:0',
           },
         });
       });
@@ -1022,41 +1024,41 @@ describe('RelayConnectionHandler', () => {
             'connection',
             'ConnectionQuery_friends',
             'friends',
-          ) + '{"orderby":["first name"]}';
+          ) + '(orderby:["first name"])';
         const payload = {
           args,
           dataID: '4',
-          fieldKey: formatStorageKey('friends', args),
+          fieldKey: getStableStorageKey('friends', args),
           handleKey,
         };
         RelayConnectionHandler.update(proxy, payload);
         expect(sinkData).toEqual({
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])',
             [TYPENAME_KEY]: 'FriendsConnection',
             edges: {
               [REFS_KEY]: [
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:0',
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:0',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
               ],
             },
             pageInfo: {
               [REF_KEY]:
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
             },
             __connection_next_edge_index: 2,
           },
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
             [TYPENAME_KEY]: 'FriendsEdge',
             cursor: null,
             node: {[REF_KEY]: '2'},
           },
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
             [TYPENAME_KEY]: 'PageInfo',
             [END_CURSOR]: 'cursor:2',
             [HAS_NEXT_PAGE]: false,
@@ -1102,41 +1104,41 @@ describe('RelayConnectionHandler', () => {
             'connection',
             'ConnectionQuery_friends',
             'friends',
-          ) + '{"orderby":["first name"]}';
+          ) + '(orderby:["first name"])';
         const payload = {
           args,
           dataID: '4',
-          fieldKey: formatStorageKey('friends', args),
+          fieldKey: getStableStorageKey('friends', args),
           handleKey,
         };
         RelayConnectionHandler.update(proxy, payload);
         expect(sinkData).toEqual({
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])',
             [TYPENAME_KEY]: 'FriendsConnection',
             edges: {
               [REFS_KEY]: [
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:0',
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:0',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
               ],
             },
             pageInfo: {
               [REF_KEY]:
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
             },
             __connection_next_edge_index: 2,
           },
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
             [TYPENAME_KEY]: 'FriendsEdge',
             cursor: 'cursor:2',
             node: {[REF_KEY]: '2'},
           },
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
             [TYPENAME_KEY]: 'PageInfo',
             [END_CURSOR]: 'cursor:updated',
             [HAS_NEXT_PAGE]: false,
@@ -1175,32 +1177,32 @@ describe('RelayConnectionHandler', () => {
             'connection',
             'ConnectionQuery_friends',
             'friends',
-          ) + '{"orderby":["first name"]}';
+          ) + '(orderby:["first name"])';
         const payload = {
           args,
           dataID: '4',
-          fieldKey: formatStorageKey('friends', args),
+          fieldKey: getStableStorageKey('friends', args),
           handleKey,
         };
         RelayConnectionHandler.update(proxy, payload);
         expect(sinkData).toEqual({
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])',
             [TYPENAME_KEY]: 'FriendsConnection',
             edges: {
               [REFS_KEY]: [
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:0',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:0',
               ],
             },
             pageInfo: {
               [REF_KEY]:
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
             },
           },
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
             [TYPENAME_KEY]: 'PageInfo',
             [HAS_NEXT_PAGE]: false,
             // end_cursor is skipped
@@ -1252,49 +1254,49 @@ describe('RelayConnectionHandler', () => {
             'connection',
             'ConnectionQuery_friends',
             'friends',
-          ) + '{"orderby":["first name"]}';
+          ) + '(orderby:["first name"])';
         const payload = {
           args,
           dataID: '4',
-          fieldKey: formatStorageKey('friends', args),
+          fieldKey: getStableStorageKey('friends', args),
           handleKey,
         };
         RelayConnectionHandler.update(proxy, payload);
         expect(sinkData).toEqual({
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])',
             [TYPENAME_KEY]: 'FriendsConnection',
             edges: {
               [REFS_KEY]: [
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:0',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:0',
                 // '...edges:0' skipped bc of duplicate node id
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:2',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:2',
               ],
             },
             pageInfo: {
               [REF_KEY]:
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
             },
             __connection_next_edge_index: 3,
           },
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
             [TYPENAME_KEY]: 'FriendsEdge',
             cursor: 'cursor:2',
             node: {[REF_KEY]: '1'},
           },
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:2': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:2': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:2',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:2',
             [TYPENAME_KEY]: 'FriendsEdge',
             cursor: 'cursor:3',
             node: {[REF_KEY]: '3'},
           },
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
             [TYPENAME_KEY]: 'PageInfo',
             [END_CURSOR]: 'cursor:3',
             [HAS_NEXT_PAGE]: true,
@@ -1346,49 +1348,49 @@ describe('RelayConnectionHandler', () => {
             'connection',
             'ConnectionQuery_friends',
             'friends',
-          ) + '{"orderby":["first name"]}';
+          ) + '(orderby:["first name"])';
         const payload = {
           args,
           dataID: '4',
-          fieldKey: formatStorageKey('friends', args),
+          fieldKey: getStableStorageKey('friends', args),
           handleKey,
         };
         RelayConnectionHandler.update(proxy, payload);
         expect(sinkData).toEqual({
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])',
             [TYPENAME_KEY]: 'FriendsConnection',
             edges: {
               [REFS_KEY]: [
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:0',
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:2',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:0',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:2',
               ],
             },
             pageInfo: {
               [REF_KEY]:
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
             },
             __connection_next_edge_index: 3,
           },
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
             [TYPENAME_KEY]: 'FriendsEdge',
             cursor: 'cursor:1',
             node: {[REF_KEY]: '2'},
           },
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:2': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:2': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:2',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:2',
             [TYPENAME_KEY]: 'FriendsEdge',
             cursor: 'cursor:3',
             node: {[REF_KEY]: '3'},
           },
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
             [TYPENAME_KEY]: 'PageInfo',
             [END_CURSOR]: 'cursor:3',
             [HAS_NEXT_PAGE]: true,
@@ -1438,34 +1440,34 @@ describe('RelayConnectionHandler', () => {
             'connection',
             'ConnectionQuery_friends',
             'friends',
-          ) + '{"orderby":["first name"]}';
+          ) + '(orderby:["first name"])';
 
         const payload = {
           args,
           dataID: '4',
-          fieldKey: formatStorageKey('friends', args),
+          fieldKey: getStableStorageKey('friends', args),
           handleKey,
         };
         RelayConnectionHandler.update(proxy, payload);
         expect(sinkData).toEqual({
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])',
             [TYPENAME_KEY]: 'FriendsConnection',
             edges: {
               [REFS_KEY]: [
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:0',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:0',
               ],
             },
             pageInfo: {
               [REF_KEY]:
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
             },
             __connection_next_edge_index: 2,
           },
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
             [TYPENAME_KEY]: 'FriendsEdge',
             cursor: 'cursor:2',
             node: {[REF_KEY]: '2'},
@@ -1516,33 +1518,33 @@ describe('RelayConnectionHandler', () => {
             'connection',
             'ConnectionQuery_friends',
             'friends',
-          ) + '{"orderby":["first name"]}';
+          ) + '(orderby:["first name"])';
         const payload = {
           args,
           dataID: '4',
-          fieldKey: formatStorageKey('friends', args),
+          fieldKey: getStableStorageKey('friends', args),
           handleKey,
         };
         RelayConnectionHandler.update(proxy, payload);
         expect(sinkData).toEqual({
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])',
             [TYPENAME_KEY]: 'FriendsConnection',
             edges: {
               [REFS_KEY]: [
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:0',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:0',
               ],
             },
             pageInfo: {
               [REF_KEY]:
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
             },
             __connection_next_edge_index: 2,
           },
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
             [TYPENAME_KEY]: 'FriendsEdge',
             cursor: 'cursor:2',
             node: {[REF_KEY]: '2'},
@@ -1589,42 +1591,42 @@ describe('RelayConnectionHandler', () => {
             'connection',
             'ConnectionQuery_friends',
             'friends',
-          ) + '{"orderby":["first name"]}';
+          ) + '(orderby:["first name"])';
         const payload = {
           args,
           dataID: '4',
-          fieldKey: formatStorageKey('friends', args),
+          fieldKey: getStableStorageKey('friends', args),
           handleKey,
         };
         RelayConnectionHandler.update(proxy, payload);
         expect(sinkData).toEqual({
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"])',
             [TYPENAME_KEY]: 'FriendsConnection',
             count: 2,
             edges: {
               [REFS_KEY]: [
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:0',
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:0',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
               ],
             },
             pageInfo: {
               [REF_KEY]:
-                'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+                'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
             },
             __connection_next_edge_index: 2,
           },
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:edges:1',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):edges:1',
             [TYPENAME_KEY]: 'FriendsEdge',
             cursor: 'cursor:2',
             node: {[REF_KEY]: '2'},
           },
-          'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo': {
+          'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo': {
             [ID_KEY]:
-              'client:4:__ConnectionQuery_friends_connection{"orderby":["first name"]}:pageInfo',
+              'client:4:__ConnectionQuery_friends_connection(orderby:["first name"]):pageInfo',
             [TYPENAME_KEY]: 'PageInfo',
             [END_CURSOR]: 'cursor:2',
             [HAS_NEXT_PAGE]: false,

@@ -1,10 +1,9 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule RelayModernSelector
  * @flow
  * @format
  */
@@ -15,13 +14,16 @@ const areEqual = require('areEqual');
 const invariant = require('invariant');
 const warning = require('warning');
 
-const {getFragmentVariables} = require('RelayConcreteVariables');
-const {FRAGMENTS_KEY, ID_KEY} = require('RelayStoreUtils');
+const {getFragmentVariables} = require('./RelayConcreteVariables');
+const {
+  FRAGMENT_OWNER_KEY,
+  FRAGMENTS_KEY,
+  ID_KEY,
+} = require('./RelayStoreUtils');
 
-import type {ConcreteFragment} from 'RelayConcreteNode';
-import type {DataID} from 'RelayInternalTypes';
-import type {Selector} from 'RelayStoreTypes';
-import type {Variables} from 'RelayTypes';
+import type {ReaderFragment} from '../util/ReaderNode';
+import type {DataID, Variables} from '../util/RelayRuntimeTypes';
+import type {FragmentOwner, OwnedReaderSelector} from './RelayStoreTypes';
 
 /**
  * @public
@@ -54,9 +56,9 @@ import type {Variables} from 'RelayTypes';
  */
 function getSelector(
   operationVariables: Variables,
-  fragment: ConcreteFragment,
+  fragment: ReaderFragment,
   item: mixed,
-): ?Selector {
+): ?OwnedReaderSelector {
   invariant(
     typeof item === 'object' && item !== null && !Array.isArray(item),
     'RelayModernSelector: Expected value for fragment `%s` to be an object, got ' +
@@ -66,6 +68,7 @@ function getSelector(
   );
   const dataID = item[ID_KEY];
   const fragments = item[FRAGMENTS_KEY];
+  const owner = item[FRAGMENT_OWNER_KEY];
   if (
     typeof dataID === 'string' &&
     typeof fragments === 'object' &&
@@ -74,15 +77,38 @@ function getSelector(
     fragments[fragment.name] !== null
   ) {
     const argumentVariables = fragments[fragment.name];
+
+    if (owner != null && typeof owner === 'object') {
+      // $FlowFixMe - TODO T39154660
+      const typedOwner: FragmentOwner = owner;
+      const ownerOperationVariables = typedOwner.variables;
+      const fragmentVariables = getFragmentVariables(
+        fragment,
+        ownerOperationVariables,
+        argumentVariables,
+      );
+      return {
+        owner: typedOwner,
+        selector: {
+          dataID,
+          node: fragment,
+          variables: fragmentVariables,
+        },
+      };
+    }
+
     const fragmentVariables = getFragmentVariables(
       fragment,
       operationVariables,
       argumentVariables,
     );
     return {
-      dataID,
-      node: fragment,
-      variables: fragmentVariables,
+      owner: null,
+      selector: {
+        dataID,
+        node: fragment,
+        variables: fragmentVariables,
+      },
     };
   }
   warning(
@@ -107,9 +133,9 @@ function getSelector(
  */
 function getSelectorList(
   operationVariables: Variables,
-  fragment: ConcreteFragment,
+  fragment: ReaderFragment,
   items: Array<mixed>,
-): ?Array<Selector> {
+): ?Array<OwnedReaderSelector> {
   let selectors = null;
   items.forEach(item => {
     const selector =
@@ -134,9 +160,9 @@ function getSelectorList(
  */
 function getSelectorsFromObject(
   operationVariables: Variables,
-  fragments: {[key: string]: ConcreteFragment},
+  fragments: {[key: string]: ReaderFragment},
   object: {[key: string]: mixed},
-): {[key: string]: ?(Selector | Array<Selector>)} {
+): {[key: string]: ?(OwnedReaderSelector | Array<OwnedReaderSelector>)} {
   const selectors = {};
   for (const key in fragments) {
     if (fragments.hasOwnProperty(key)) {
@@ -180,7 +206,7 @@ function getSelectorsFromObject(
  * determining the "identity" of the props passed to a component.
  */
 function getDataIDsFromObject(
-  fragments: {[key: string]: ConcreteFragment},
+  fragments: {[key: string]: ReaderFragment},
   object: {[key: string]: mixed},
 ): {[key: string]: ?(DataID | Array<DataID>)} {
   const ids = {};
@@ -220,7 +246,7 @@ function getDataIDsFromObject(
  * @internal
  */
 function getDataIDs(
-  fragment: ConcreteFragment,
+  fragment: ReaderFragment,
   items: Array<mixed>,
 ): ?Array<DataID> {
   let ids;
@@ -237,7 +263,7 @@ function getDataIDs(
 /**
  * @internal
  */
-function getDataID(fragment: ConcreteFragment, item: mixed): ?DataID {
+function getDataID(fragment: ReaderFragment, item: mixed): ?DataID {
   invariant(
     typeof item === 'object' && item !== null && !Array.isArray(item),
     'RelayModernSelector: Expected value for fragment `%s` to be an object, got ' +
@@ -273,7 +299,7 @@ function getDataID(fragment: ConcreteFragment, item: mixed): ?DataID {
  */
 function getVariablesFromObject(
   operationVariables: Variables,
-  fragments: {[key: string]: ConcreteFragment},
+  fragments: {[key: string]: ReaderFragment},
   object: {[key: string]: mixed},
 ): Variables {
   const variables = {};
@@ -328,11 +354,14 @@ function getVariablesFromObject(
  */
 function getVariables(
   operationVariables: Variables,
-  fragment: ConcreteFragment,
+  fragment: ReaderFragment,
   item: mixed,
 ): ?Variables {
-  const selector = getSelector(operationVariables, fragment, item);
-  return selector ? selector.variables : null;
+  const ownedSelector = getSelector(operationVariables, fragment, item);
+  if (!ownedSelector) {
+    return null;
+  }
+  return ownedSelector.selector.variables;
 }
 
 /**
@@ -343,13 +372,13 @@ function getVariables(
  * different objects, even if they select the same fields.
  */
 function areEqualSelectors(
-  thisSelector: Selector,
-  thatSelector: Selector,
+  thisSelector: OwnedReaderSelector,
+  thatSelector: OwnedReaderSelector,
 ): boolean {
   return (
-    thisSelector.dataID === thatSelector.dataID &&
-    thisSelector.node === thatSelector.node &&
-    areEqual(thisSelector.variables, thatSelector.variables)
+    thisSelector.selector.dataID === thatSelector.selector.dataID &&
+    thisSelector.selector.node === thatSelector.selector.node &&
+    areEqual(thisSelector.selector.variables, thatSelector.selector.variables)
   );
 }
 

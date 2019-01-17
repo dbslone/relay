@@ -1,30 +1,38 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule RelayModernGraphQLTag
  * @flow
  * @format
  */
 
 'use strict';
 
+const RelayConcreteNode = require('../util/RelayConcreteNode');
+
 const invariant = require('invariant');
 
 import type {
+  ReaderFragment,
+  ReaderRefetchableFragment,
+  ReaderPaginationFragment,
+} from '../util/ReaderNode';
+import type {ConcreteRequest} from '../util/RelayConcreteNode';
+import type {
   ConcreteFragmentDefinition,
   ConcreteOperationDefinition,
-} from 'ConcreteQuery';
-import type {ConcreteBatch, ConcreteFragment} from 'RelayConcreteNode';
-import typeof RelayQL from 'RelayQL';
+} from 'react-relay/classic/query/ConcreteQuery';
+import typeof RelayQL from 'react-relay/classic/query/RelayQL';
 
 // The type of a graphql`...` tagged template expression.
 export type GraphQLTaggedNode =
-  | (() => ConcreteFragment | ConcreteBatch)
+  | ReaderFragment
+  | ConcreteRequest
+  | (() => ReaderFragment | ConcreteRequest)
   | {
-      modern: () => ConcreteFragment | ConcreteBatch,
+      modern: () => ReaderFragment | ConcreteRequest,
       classic: RelayQL =>
         | ConcreteFragmentDefinition
         | ConcreteOperationDefinition,
@@ -43,53 +51,94 @@ function graphql(strings: Array<string>): GraphQLTaggedNode {
   );
 }
 
-/**
- * Variant of the `graphql` tag that enables experimental features.
- */
-graphql.experimental = function(strings: Array<string>): GraphQLTaggedNode {
-  invariant(
-    false,
-    'graphql.experimental: Unexpected invocation at runtime. Either the ' +
-      'Babel transform was not set up, or it failed to identify this call ' +
-      'site. Make sure it is being used verbatim as `graphql`.',
-  );
-};
-
 function getNode(taggedNode) {
-  const fn = typeof taggedNode === 'function' ? taggedNode : taggedNode.modern;
+  const fn =
+    typeof taggedNode === 'function'
+      ? taggedNode
+      : typeof taggedNode.modern === 'function'
+        ? taggedNode.modern
+        : null;
   // Support for classic raw nodes (used in test mock)
-  if (typeof fn !== 'function') {
+  if (fn === null) {
     return (taggedNode: any);
   }
-  return fn();
+  const data: any = fn();
+  // Support for languages that work (best) with ES6 modules, such as TypeScript.
+  return data.default ? data.default : data;
 }
 
-function getFragment(taggedNode: GraphQLTaggedNode): ConcreteFragment {
+function isFragment(node: GraphQLTaggedNode): boolean {
+  const fragment = getNode(node);
+  return (
+    typeof fragment === 'object' &&
+    fragment !== null &&
+    fragment.kind === RelayConcreteNode.FRAGMENT
+  );
+}
+
+function isRequest(node: GraphQLTaggedNode): boolean {
+  const request = getNode(node);
+  return (
+    typeof request === 'object' &&
+    request !== null &&
+    request.kind === RelayConcreteNode.REQUEST
+  );
+}
+
+function getFragment(taggedNode: GraphQLTaggedNode): ReaderFragment {
   const fragment = getNode(taggedNode);
   invariant(
-    typeof fragment === 'object' &&
-      fragment !== null &&
-      fragment.kind === 'Fragment',
+    isFragment(fragment),
     'RelayModernGraphQLTag: Expected a fragment, got `%s`.',
     JSON.stringify(fragment),
   );
   return (fragment: any);
 }
 
-function getOperation(taggedNode: GraphQLTaggedNode): ConcreteBatch {
-  const operation = getNode(taggedNode);
+function getPaginationFragment(
+  taggedNode: GraphQLTaggedNode,
+): ReaderPaginationFragment | null {
+  const fragment = getFragment(taggedNode);
+  const refetch = fragment.metadata?.refetch;
+  const connection = refetch?.connection;
+  if (
+    refetch === null ||
+    typeof refetch !== 'object' ||
+    connection === null ||
+    typeof connection !== 'object'
+  ) {
+    return null;
+  }
+  return (fragment: any);
+}
+
+function getRefetchableFragment(
+  taggedNode: GraphQLTaggedNode,
+): ReaderRefetchableFragment | null {
+  const fragment = getFragment(taggedNode);
+  const refetch = fragment.metadata?.refetch;
+  if (refetch === null || typeof refetch !== 'object') {
+    return null;
+  }
+  return (fragment: any);
+}
+
+function getRequest(taggedNode: GraphQLTaggedNode): ConcreteRequest {
+  const request = getNode(taggedNode);
   invariant(
-    typeof operation === 'object' &&
-      operation !== null &&
-      operation.kind === 'Batch',
-    'RelayModernGraphQLTag: Expected an operation, got `%s`.',
-    JSON.stringify(operation),
+    isRequest(request),
+    'RelayModernGraphQLTag: Expected a request, got `%s`.',
+    JSON.stringify(request),
   );
-  return (operation: any);
+  return (request: any);
 }
 
 module.exports = {
   getFragment,
-  getOperation,
+  getPaginationFragment,
+  getRefetchableFragment,
+  getRequest,
   graphql,
+  isFragment,
+  isRequest,
 };

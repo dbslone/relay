@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -11,9 +11,9 @@
 'use strict';
 
 const React = require('React');
-const ReactRelayPropTypes = require('ReactRelayPropTypes');
+const ReactRelayContext = require('../../modern/ReactRelayContext');
 const ReactTestRenderer = require('ReactTestRenderer');
-const RelayCompatFragmentContainer = require('RelayCompatContainer');
+const RelayCompatFragmentContainer = require('../react/RelayCompatContainer');
 const RelayModernTestUtils = require('RelayModernTestUtils');
 
 const {createMockEnvironment} = require('RelayModernMockEnvironment');
@@ -42,39 +42,43 @@ describe('RelayCompatFragmentContainer', () => {
       constructor(props) {
         super();
         const {environment, variables} = props;
-        this.relay = {environment, variables};
+        this.__relayContext = {environment, variables};
         this.state = {props: null};
       }
-      componentWillReceiveProps(nextProps) {
+      UNSAFE_componentWillReceiveProps(nextProps) {
         const {environment, variables} = nextProps;
         if (
-          environment !== this.relay.environment ||
-          variables !== this.relay.variables
+          environment !== this.__relayContext.environment ||
+          variables !== this.__relayContext.variables
         ) {
-          this.relay = {environment, variables};
+          this.__relayContext = {environment, variables};
         }
-      }
-      getChildContext() {
-        return {relay: this.relay};
       }
       setProps(props) {
         this.setState({props});
       }
       setContext(env, vars) {
-        this.relay = {environment: env, variables: vars};
-        this.setState({context: {environment: env, variables: vars}});
+        this.__relayContext = {
+          environment: env,
+          variables: vars,
+        };
+        this.forceUpdate();
       }
-      render() {
+      getChild() {
         const child = React.Children.only(this.props.children);
         if (this.state.props) {
           return React.cloneElement(child, this.state.props);
         }
         return child;
       }
+      render() {
+        return (
+          <ReactRelayContext.Provider value={this.__relayContext}>
+            {this.getChild()}
+          </ReactRelayContext.Provider>
+        );
+      }
     }
-    ContextSetter.childContextTypes = {
-      relay: ReactRelayPropTypes.Relay,
-    };
 
     const environment = createMockEnvironment();
     const {UserFragment} = environment.mock.compile(`

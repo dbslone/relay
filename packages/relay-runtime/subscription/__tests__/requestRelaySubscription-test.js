@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -11,12 +11,14 @@
 
 'use strict';
 
-const requestRelaySubscription = require('requestRelaySubscription');
+const requestRelaySubscription = require('../requestRelaySubscription');
 
+const {
+  createOperationSelector,
+} = require('../../store/RelayModernOperationSelector');
+const {ROOT_ID} = require('../../store/RelayStoreUtils');
 const {createMockEnvironment} = require('RelayModernMockEnvironment');
-const {createOperationSelector} = require('RelayModernOperationSelector');
 const {generateAndCompile} = require('RelayModernTestUtils');
-const {ROOT_ID} = require('RelayStoreUtils');
 
 describe('requestRelaySubscription-test', () => {
   it('Config: `RANGE_ADD`', () => {

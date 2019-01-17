@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -9,8 +9,9 @@
 
 'use strict';
 
-const RelayEnvironment = require.requireActual('RelayEnvironment');
-const RelayRecordStore = require('RelayRecordStore');
+const RelayEnvironment = jest.requireActual('../RelayEnvironment');
+const RelayStoreData = jest.requireActual('../RelayStoreData');
+const RelayRecordStore = require('../RelayRecordStore');
 
 const resolveImmediate = require('resolveImmediate');
 
@@ -55,7 +56,7 @@ function genMockRequest(args) {
 
 class MockRelayEnvironment extends RelayEnvironment {
   constructor() {
-    super();
+    super(new RelayStoreData());
 
     for (const method of ['getFragmentResolver', 'read']) {
       this[method] = jest.fn(RelayEnvironment.prototype[method]);

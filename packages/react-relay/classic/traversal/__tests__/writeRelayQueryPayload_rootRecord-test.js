@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -10,14 +10,14 @@
 
 'use strict';
 
-jest.mock('generateClientID').mock('warning');
+jest.mock('../../legacy/store/generateClientID').mock('warning');
 
 require('configureForRelayOSS');
 
-const RelayClassic = require('RelayClassic');
+const RelayClassic = require('../../RelayPublic');
 const RelayTestUtils = require('RelayTestUtils');
 
-const stableStringify = require('stableStringify');
+const stableStringify = require('../../query/stableStringify');
 
 describe('writeRelayQueryPayload()', () => {
   let RelayRecordStore;
@@ -34,8 +34,8 @@ describe('writeRelayQueryPayload()', () => {
   beforeEach(() => {
     jest.resetModules();
 
-    RelayRecordStore = require('RelayRecordStore');
-    RelayRecordWriter = require('RelayRecordWriter');
+    RelayRecordStore = require('../../store/RelayRecordStore');
+    RelayRecordWriter = require('../../store/RelayRecordWriter');
 
     expect.extend(RelayTestUtils.matchers);
   });

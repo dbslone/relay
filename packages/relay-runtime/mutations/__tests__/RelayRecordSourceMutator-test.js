@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -10,13 +10,13 @@
 
 'use strict';
 
-const RelayInMemoryRecordSource = require('RelayInMemoryRecordSource');
+const RelayInMemoryRecordSource = require('../../store/RelayInMemoryRecordSource');
 const RelayModernTestUtils = require('RelayModernTestUtils');
-const RelayRecordSourceMutator = require('RelayRecordSourceMutator');
-const RelayRecordState = require('RelayRecordState');
-const RelayStoreUtils = require('RelayStoreUtils');
+const RelayRecordSourceMutator = require('../../mutations/RelayRecordSourceMutator');
+const RelayRecordState = require('../../store/RelayRecordState');
+const RelayStoreUtils = require('../../store/RelayStoreUtils');
 
-const simpleClone = require('simpleClone');
+const simpleClone = require('../../util/simpleClone');
 
 const {
   ID_KEY,

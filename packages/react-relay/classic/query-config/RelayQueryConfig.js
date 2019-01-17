@@ -1,10 +1,9 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule RelayQueryConfig
  * @flow
  * @format
  */
@@ -13,15 +12,15 @@
 
 const invariant = require('invariant');
 
-import type {Variables} from 'RelayTypes';
-import type {RelayQLQueryBuilder} from 'buildRQL';
+import type {RelayQLQueryBuilder} from '../query/buildRQL';
+import type {Variables} from 'relay-runtime';
 
 export type ConfigQueries = {[queryName: string]: RelayQLQueryBuilder};
 export interface RelayQueryConfigInterface {
-  name: string,
-  params: Variables,
-  queries: ConfigQueries,
-  useMockData?: boolean,
+  name: string;
+  params: Variables;
+  queries: ConfigQueries;
+  useMockData?: boolean;
 }
 
 /**

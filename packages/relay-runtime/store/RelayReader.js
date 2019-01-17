@@ -1,52 +1,63 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule RelayReader
- * @flow
+ * @flow strict-local
  * @format
  */
 
 'use strict';
 
-const RelayConcreteNode = require('RelayConcreteNode');
-const RelayModernRecord = require('RelayModernRecord');
-const RelayStoreUtils = require('RelayStoreUtils');
+const RelayModernRecord = require('./RelayModernRecord');
 
 const invariant = require('invariant');
-
-import type {Record, SelectorData} from 'RelayCombinedEnvironmentTypes';
-import type {
-  ConcreteFragmentSpread,
-  ConcreteLinkedField,
-  ConcreteNode,
-  ConcreteScalarField,
-  ConcreteSelection,
-  ConcreteSelectableNode,
-} from 'RelayConcreteNode';
-import type {DataID} from 'RelayInternalTypes';
-import type {RecordSource, Selector, Snapshot} from 'RelayStoreTypes';
-import type {Variables} from 'RelayTypes';
 
 const {
   CONDITION,
   FRAGMENT_SPREAD,
   INLINE_FRAGMENT,
   LINKED_FIELD,
+  MATCH_FIELD,
   SCALAR_FIELD,
-} = RelayConcreteNode;
+} = require('../util/RelayConcreteNode');
 const {
   FRAGMENTS_KEY,
+  FRAGMENT_OWNER_KEY,
+  FRAGMENT_PROP_NAME_KEY,
   ID_KEY,
+  MATCH_COMPONENT_KEY,
+  MODULE_KEY,
   getArgumentValues,
   getStorageKey,
-} = RelayStoreUtils;
+} = require('./RelayStoreUtils');
 
-function read(recordSource: RecordSource, selector: Selector): Snapshot {
+import type {
+  ReaderFragmentSpread,
+  ReaderLinkedField,
+  ReaderMatchField,
+  ReaderNode,
+  ReaderScalarField,
+  ReaderSelection,
+  ReaderSelectableNode,
+} from '../util/ReaderNode';
+import type {Record, SelectorData} from '../util/RelayCombinedEnvironmentTypes';
+import type {DataID, Variables} from '../util/RelayRuntimeTypes';
+import type {
+  RecordSource,
+  ReaderSelector,
+  FragmentOwner,
+  Snapshot,
+} from './RelayStoreTypes';
+
+function read(
+  recordSource: RecordSource,
+  selector: ReaderSelector,
+  owner?: FragmentOwner,
+): Snapshot {
   const {dataID, node, variables} = selector;
-  const reader = new RelayReader(recordSource, variables);
+  const reader = new RelayReader(recordSource, variables, owner ?? null);
   return reader.read(node, dataID);
 }
 
@@ -57,14 +68,22 @@ class RelayReader {
   _recordSource: RecordSource;
   _seenRecords: {[dataID: DataID]: ?Record};
   _variables: Variables;
+  _isMissingData: boolean;
+  _owner: FragmentOwner | null;
 
-  constructor(recordSource: RecordSource, variables: Variables) {
+  constructor(
+    recordSource: RecordSource,
+    variables: Variables,
+    owner: FragmentOwner | null,
+  ) {
     this._recordSource = recordSource;
     this._seenRecords = {};
+    this._isMissingData = false;
     this._variables = variables;
+    this._owner = owner;
   }
 
-  read(node: ConcreteSelectableNode, dataID: DataID): Snapshot {
+  read(node: ReaderSelectableNode, dataID: DataID): Snapshot {
     const data = this._traverse(node, dataID, null);
     return {
       data,
@@ -72,17 +91,21 @@ class RelayReader {
       node,
       seenRecords: this._seenRecords,
       variables: this._variables,
+      isMissingData: this._isMissingData,
     };
   }
 
   _traverse(
-    node: ConcreteNode,
+    node: ReaderNode,
     dataID: DataID,
     prevData: ?SelectorData,
   ): ?SelectorData {
     const record = this._recordSource.get(dataID);
     this._seenRecords[dataID] = record;
     if (record == null) {
+      if (record === undefined) {
+        this._isMissingData = true;
+      }
       return record;
     }
     const data = prevData || {};
@@ -100,7 +123,7 @@ class RelayReader {
   }
 
   _traverseSelections(
-    selections: Array<ConcreteSelection>,
+    selections: $ReadOnlyArray<ReaderSelection>,
     record: Record,
     data: SelectorData,
   ): void {
@@ -124,7 +147,9 @@ class RelayReader {
           this._traverseSelections(selection.selections, record, data);
         }
       } else if (selection.kind === FRAGMENT_SPREAD) {
-        this._createFragmentPointer(selection, record, data);
+        this._createFragmentPointer(selection, record, data, this._variables);
+      } else if (selection.kind === MATCH_FIELD) {
+        this._readMatchField(selection, record, data);
       } else {
         invariant(
           false,
@@ -136,27 +161,32 @@ class RelayReader {
   }
 
   _readScalar(
-    field: ConcreteScalarField,
+    field: ReaderScalarField,
     record: Record,
     data: SelectorData,
   ): void {
-    const applicationName = field.alias || field.name;
+    const applicationName = field.alias ?? field.name;
     const storageKey = getStorageKey(field, this._variables);
     const value = RelayModernRecord.getValue(record, storageKey);
+    if (value === undefined) {
+      this._isMissingData = true;
+    }
     data[applicationName] = value;
   }
 
   _readLink(
-    field: ConcreteLinkedField,
+    field: ReaderLinkedField,
     record: Record,
     data: SelectorData,
   ): void {
-    const applicationName = field.alias || field.name;
+    const applicationName = field.alias ?? field.name;
     const storageKey = getStorageKey(field, this._variables);
     const linkedID = RelayModernRecord.getLinkedRecordID(record, storageKey);
-
     if (linkedID == null) {
       data[applicationName] = linkedID;
+      if (linkedID === undefined) {
+        this._isMissingData = true;
+      }
       return;
     }
 
@@ -173,16 +203,19 @@ class RelayReader {
   }
 
   _readPluralLink(
-    field: ConcreteLinkedField,
+    field: ReaderLinkedField,
     record: Record,
     data: SelectorData,
   ): void {
-    const applicationName = field.alias || field.name;
+    const applicationName = field.alias ?? field.name;
     const storageKey = getStorageKey(field, this._variables);
     const linkedIDs = RelayModernRecord.getLinkedRecordIDs(record, storageKey);
 
     if (linkedIDs == null) {
       data[applicationName] = linkedIDs;
+      if (linkedIDs === undefined) {
+        this._isMissingData = true;
+      }
       return;
     }
 
@@ -198,6 +231,9 @@ class RelayReader {
     const linkedArray = prevData || [];
     linkedIDs.forEach((linkedID, nextIndex) => {
       if (linkedID == null) {
+        if (linkedID === undefined) {
+          this._isMissingData = true;
+        }
         linkedArray[nextIndex] = linkedID;
         return;
       }
@@ -210,19 +246,119 @@ class RelayReader {
         RelayModernRecord.getDataID(record),
         prevItem,
       );
-      const linkedItem = this._traverse(field, linkedID, prevItem);
-      linkedArray[nextIndex] = linkedItem;
+      linkedArray[nextIndex] = this._traverse(field, linkedID, prevItem);
     });
     data[applicationName] = linkedArray;
   }
 
-  _createFragmentPointer(
-    fragmentSpread: ConcreteFragmentSpread,
+  /**
+   * Reads a ReaderMatchField, which was generated from using the @match
+   * directive
+   */
+  _readMatchField(
+    field: ReaderMatchField,
     record: Record,
     data: SelectorData,
   ): void {
+    const applicationName = field.alias ?? field.name;
+    const storageKey = getStorageKey(field, this._variables);
+    const linkedID = RelayModernRecord.getLinkedRecordID(record, storageKey);
+    if (linkedID == null) {
+      data[applicationName] = linkedID;
+      if (linkedID === undefined) {
+        this._isMissingData = true;
+      }
+      return;
+    }
+
+    const prevData = data[applicationName];
+    invariant(
+      prevData == null || typeof prevData === 'object',
+      'RelayReader(): Expected data for field `%s` on record `%s` ' +
+        'to be an object, got `%s`.',
+      applicationName,
+      RelayModernRecord.getDataID(record),
+      prevData,
+    );
+
+    // Instead of recursing into the traversal again, let's manually traverse
+    // one level to get the record associated with the match field
+    const linkedRecord = this._recordSource.get(linkedID);
+    this._seenRecords[linkedID] = linkedRecord;
+    if (linkedRecord == null) {
+      if (linkedRecord === undefined) {
+        this._isMissingData = true;
+      }
+      data[applicationName] = linkedRecord;
+      return;
+    }
+
+    // Determine the concrete type for the match field record. The type of a
+    // match field must be a union type (i.e. abstract type), so here we
+    // read the concrete type on the record, which should be the type resolved
+    // by the server in the response.
+    const concreteType = RelayModernRecord.getType(linkedRecord);
+    invariant(
+      typeof concreteType === 'string',
+      'RelayReader(): Expected to be able to resolve concrete type for ' +
+        'field `%s` on record `%s`',
+      applicationName,
+      RelayModernRecord.getDataID(linkedRecord),
+    );
+
+    // If we can't find a match provided in the directive for the concrete
+    // type, return null as the result
+    const match = field.matchesByType[concreteType];
+    if (match == null) {
+      data[applicationName] = null;
+      return;
+    }
+
+    // Determine the component module from the store: if the field is missing
+    // it means we don't know what component to render the match with.
+    const matchComponent = RelayModernRecord.getValue(
+      linkedRecord,
+      MATCH_COMPONENT_KEY,
+    );
+    if (matchComponent == null) {
+      if (matchComponent === undefined) {
+        this._isMissingData = true;
+      }
+      data[applicationName] = null;
+      return;
+    }
+
+    // Otherwise, read the fragment and module associated to the concrete
+    // type, and put that data with the result:
+    // - For the matched fragment, create the relevant fragment pointer and add
+    //   the expected fragmentPropName
+    // - For the matched module, create a reference to the module
+    const matchResult = {};
+    this._createFragmentPointer(
+      {
+        kind: 'FragmentSpread',
+        name: match.fragmentName,
+        args: null,
+      },
+      linkedRecord,
+      matchResult,
+      this._variables,
+    );
+    matchResult[FRAGMENT_PROP_NAME_KEY] = match.fragmentPropName;
+    matchResult[MODULE_KEY] = matchComponent;
+
+    // Attach the match result to the data being read
+    data[applicationName] = matchResult;
+  }
+
+  _createFragmentPointer(
+    fragmentSpread: ReaderFragmentSpread,
+    record: Record,
+    data: SelectorData,
+    variables: Variables,
+  ): void {
     let fragmentPointers = data[FRAGMENTS_KEY];
-    if (!fragmentPointers) {
+    if (fragmentPointers == null) {
       fragmentPointers = data[FRAGMENTS_KEY] = {};
     }
     invariant(
@@ -230,11 +366,11 @@ class RelayReader {
       'RelayReader: Expected fragment spread data to be an object, got `%s`.',
       fragmentPointers,
     );
-    data[ID_KEY] = data[ID_KEY] || RelayModernRecord.getDataID(record);
-    const variables = fragmentSpread.args
-      ? getArgumentValues(fragmentSpread.args, this._variables)
+    data[ID_KEY] = data[ID_KEY] ?? RelayModernRecord.getDataID(record);
+    fragmentPointers[fragmentSpread.name] = fragmentSpread.args
+      ? getArgumentValues(fragmentSpread.args, variables)
       : {};
-    fragmentPointers[fragmentSpread.name] = variables;
+    data[FRAGMENT_OWNER_KEY] = this._owner;
   }
 }
 

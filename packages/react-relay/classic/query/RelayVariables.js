@@ -1,17 +1,16 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule RelayVariables
  * @flow
  * @format
  */
 
 'use strict';
 
-const QueryBuilder = require('QueryBuilder');
+const QueryBuilder = require('./QueryBuilder');
 
 const invariant = require('invariant');
 const mapObject = require('mapObject');
@@ -20,9 +19,9 @@ const warning = require('warning');
 import type {
   ConcreteFragmentDefinition,
   ConcreteOperationDefinition,
-} from 'ConcreteQuery';
-import type {VariableMapping} from 'RelayFragmentReference';
-import type {Variables} from 'RelayTypes';
+} from './ConcreteQuery';
+import type {VariableMapping} from './RelayFragmentReference';
+import type {Variables} from 'relay-runtime';
 
 /**
  * Determines the variables that are in scope for a fragment given the variables

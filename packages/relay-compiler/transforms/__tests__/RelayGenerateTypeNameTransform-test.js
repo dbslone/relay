@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -17,35 +17,23 @@ const RelayGenerateTypeNameTransform = require('RelayGenerateTypeNameTransform')
 const RelayParser = require('RelayParser');
 const RelayTestSchema = require('RelayTestSchema');
 
-const getGoldenMatchers = require('getGoldenMatchers');
-
-import type CompilerContext from 'GraphQLCompilerContext';
+const {generateTestsFromFixtures} = require('RelayModernTestUtils');
 
 describe('RelayGenerateTypeNameTransform', () => {
-  beforeEach(() => {
-    expect.extend(getGoldenMatchers(__filename));
-  });
-
-  it('matches expected output for codegen', () => {
-    expect('fixtures/generate-typename-transform').toMatchGolden(text => {
+  generateTestsFromFixtures(
+    `${__dirname}/fixtures/generate-typename-transform`,
+    text => {
       const ast = RelayParser.parse(RelayTestSchema, text);
-      const context = ast.reduce(
-        (ctx, node) => ctx.add(node),
-        new GraphQLCompilerContext(RelayTestSchema),
-      );
-      const transformContext = ((ctx, transform) => transform(ctx): any);
-      const codegenContext = [
-        InlineFragmentsTransform.transform,
-        (ctx: CompilerContext) =>
-          FlattenTransform.transform(ctx, {
-            flattenAbstractTypes: true,
-          }),
-        RelayGenerateTypeNameTransform.transform,
-      ].reduce(transformContext, context);
-      return codegenContext
+      return new GraphQLCompilerContext(RelayTestSchema)
+        .addAll(ast)
+        .applyTransforms([
+          InlineFragmentsTransform.transform,
+          FlattenTransform.transformWithOptions({flattenAbstractTypes: true}),
+          RelayGenerateTypeNameTransform.transform,
+        ])
         .documents()
-        .map(doc => JSON.stringify(doc, null, '  '))
+        .map(doc => JSON.stringify(doc, null, 2))
         .join('\n');
-    });
-  });
+    },
+  );
 });

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -10,25 +10,25 @@
 
 'use strict';
 
-jest.enableAutomock();
+jest
+  .mock('warning')
+  .mock('../../../traversal/diffRelayQuery')
+  .mock('../../../traversal/checkRelayQueryData')
+  .mock('../../../traversal/splitDeferredRelayQueries')
+  .mock('../../../store/RelayPendingQueryTracker')
+  .useFakeTimers();
 
 require('configureForRelayOSS');
 
-jest.useFakeTimers();
-jest
-  .mock('warning')
-  .unmock('GraphQLQueryRunner')
-  .unmock('RelayTaskQueue');
-
-const RelayClassic = require('RelayClassic');
-const RelayFetchMode = require('RelayFetchMode');
-const RelayStoreData = require('RelayStoreData');
+const RelayClassic = require('../../../RelayPublic');
+const RelayFetchMode = require('../../../store/RelayFetchMode');
+const RelayStoreData = require('../../../store/RelayStoreData');
 const RelayTestUtils = require('RelayTestUtils');
 
-const checkRelayQueryData = require('checkRelayQueryData');
-const diffRelayQuery = require('diffRelayQuery');
+const checkRelayQueryData = require('../../../traversal/checkRelayQueryData');
+const diffRelayQuery = require('../../../traversal/diffRelayQuery');
 const resolveImmediate = require('resolveImmediate');
-const splitDeferredRelayQueries = require('splitDeferredRelayQueries');
+const splitDeferredRelayQueries = require('../../../traversal/splitDeferredRelayQueries');
 const warning = require('warning');
 
 describe('GraphQLQueryRunner', () => {

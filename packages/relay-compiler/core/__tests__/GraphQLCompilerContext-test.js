@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -19,30 +19,26 @@ describe('GraphQLCompilerContext', () => {
   let queryFoo;
   let fragmentBar;
   let fragmentFoo;
-  let parseGraphQLText;
 
   beforeEach(() => {
     jest.resetModules();
     GraphQLCompilerContext = require('GraphQLCompilerContext');
     RelayParser = require('RelayParser');
-    parseGraphQLText = require('parseGraphQLText');
     RelayTestSchema = require('RelayTestSchema');
     RelayModernTestUtils = require('RelayModernTestUtils');
 
     expect.extend(RelayModernTestUtils.matchers);
-
-    [queryFoo, fragmentFoo, fragmentBar] = RelayParser.parse(
-      RelayTestSchema,
-      `
-      query Foo { node(id: 1) { ...Bar } }
-      fragment Foo on Node { id }
-      fragment Bar on Node { id }
-    `,
-    );
   });
 
   describe('add()', () => {
     it('adds multiple roots', () => {
+      [queryFoo, fragmentBar] = RelayParser.parse(
+        RelayTestSchema,
+        `
+          query Foo { node(id: 1) { ...Bar } }
+          fragment Bar on Node { id }
+        `,
+      );
       const context = [queryFoo, fragmentBar].reduce(
         (ctx, node) => ctx.add(node),
         new GraphQLCompilerContext(RelayTestSchema),
@@ -52,9 +48,22 @@ describe('GraphQLCompilerContext', () => {
       expect(context.getFragment('Bar')).toBe(fragmentBar);
     });
 
-    it('throws if the root names are not unique', () => {
+    it('throws if the document names are not unique', () => {
+      [queryFoo, fragmentBar] = RelayParser.parse(
+        RelayTestSchema,
+        `
+          query Foo { node(id: 1) { ...Bar } }
+          fragment Bar on Node { id }
+        `,
+      );
+      [fragmentFoo] = RelayParser.parse(
+        RelayTestSchema,
+        `
+          fragment Foo on Node { id }
+        `,
+      );
       expect(() => {
-        [queryFoo, fragmentFoo].reduce(
+        [queryFoo, fragmentBar, fragmentFoo].reduce(
           (ctx, node) => ctx.add(node),
           new GraphQLCompilerContext(RelayTestSchema),
         );
@@ -62,31 +71,6 @@ describe('GraphQLCompilerContext', () => {
         'GraphQLCompilerContext: Duplicate document named `Foo`. GraphQL ' +
           'fragments and roots must have unique names.',
       );
-    });
-  });
-  describe('updateSchema()', () => {
-    it('returns new context for schema extending query', () => {
-      const prevContext = new GraphQLCompilerContext(RelayTestSchema);
-      const {definitions, schema} = parseGraphQLText(
-        RelayTestSchema,
-        `
-        extend type User {
-          best_friends: FriendsConnection
-        }
-        fragment Bar on User {
-          best_friends {
-            edges {
-              node {id}
-            }
-          }
-        }
-      `,
-      );
-      const context = prevContext.updateSchema(schema);
-
-      expect(context).not.toEqual(prevContext);
-      expect(context.schema).not.toEqual(RelayTestSchema);
-      expect(() => context.add(definitions)).not.toThrow();
     });
   });
 });

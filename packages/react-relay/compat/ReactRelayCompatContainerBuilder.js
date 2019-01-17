@@ -1,34 +1,34 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule ReactRelayCompatContainerBuilder
  * @flow
  * @format
  */
 
 'use strict';
 
-const RelayContainerProxy = require('RelayContainerProxy');
-const RelayGraphQLTag = require('RelayGraphQLTag');
-const RelayPropTypes = require('RelayPropTypes');
+const React = require('React');
+const ReactRelayContext = require('../modern/ReactRelayContext');
+const RelayGraphQLTag = require('../classic/query/RelayGraphQLTag');
 
-const assertFragmentMap = require('assertFragmentMap');
+const assertFragmentMap = require('../modern/assertFragmentMap');
 const invariant = require('invariant');
 const mapObject = require('mapObject');
+const readContext = require('../modern/readContext');
 
-const {getComponentName, getContainerName} = require('RelayContainerUtils');
+const {
+  getComponentName,
+  getContainerName,
+} = require('../modern/ReactRelayContainerUtils');
+const {isRelayModernEnvironment} = require('relay-runtime');
 
-import type {ConcreteFragmentSpread} from 'ConcreteQuery';
-import type {GeneratedNodeMap} from 'ReactRelayTypes';
-import type {VariableMapping} from 'RelayFragmentReference';
-import type {Variables} from 'RelayTypes';
-
-const containerContextTypes = {
-  relay: RelayPropTypes.Relay,
-};
+import type {ConcreteFragmentSpread} from '../classic/query/ConcreteQuery';
+import type {VariableMapping} from '../classic/query/RelayFragmentReference';
+import type {GeneratedNodeMap} from '../modern/ReactRelayTypes';
+import type {Variables} from 'relay-runtime';
 
 type ContainerCreator = (
   Component: React$ComponentType<any>,
@@ -54,6 +54,16 @@ function injectDefaultVariablesProvider(variablesProvider: VariablesProvider) {
 }
 
 /**
+ * Sets a logging function that logs whether a compat container was rendered in
+ * a modern or classic environment.
+ */
+type CompatLoggingFunction = (moduleName: string, isModern: boolean) => void;
+let injectedCompatLoggingFunction: CompatLoggingFunction = () => {};
+function injectCompatLoggingFunction(loggingFunction: CompatLoggingFunction) {
+  injectedCompatLoggingFunction = loggingFunction;
+}
+
+/**
  * Creates a component class whose instances adapt to the
  * `context.relay.environment` in which they are rendered and which have the
  * necessary static methods (`getFragment()` etc) to be composed within classic
@@ -66,11 +76,12 @@ function injectDefaultVariablesProvider(variablesProvider: VariablesProvider) {
  * container definitions or unwrapping the environment-specific fragment
  * defintions unnecessarily.
  */
-function buildCompatContainer<TBase: React$ComponentType<*>>(
-  ComponentClass: TBase,
+function buildCompatContainer(
+  ComponentClass: React$ComponentType<any>,
   fragmentSpec: GeneratedNodeMap,
   createContainerWithFragments: ContainerCreator,
-): TBase {
+  compatModuleName: string = 'unknown',
+): any {
   // Sanity-check user-defined fragment input
   const containerName = getContainerName(ComponentClass);
   assertFragmentMap(getComponentName(ComponentClass), fragmentSpec);
@@ -91,6 +102,8 @@ function buildCompatContainer<TBase: React$ComponentType<*>>(
     fragmentName: string,
     variableMapping?: VariableMapping,
   ): ConcreteFragmentSpread {
+    injectedCompatLoggingFunction(compatModuleName, false);
+
     const taggedNode = fragmentSpec[fragmentName];
     invariant(
       taggedNode,
@@ -127,38 +140,74 @@ function buildCompatContainer<TBase: React$ComponentType<*>>(
   // Memoize a container for the last environment instance encountered
   let environment;
   let Container;
-  function ContainerConstructor(props, context) {
-    if (Container == null || context.relay.environment !== environment) {
-      environment = context.relay.environment;
+  function ContainerConstructor(props) {
+    if (Container == null || props.__relayContext.environment !== environment) {
+      environment = props.__relayContext.environment;
+
+      injectedCompatLoggingFunction(
+        compatModuleName,
+        isRelayModernEnvironment(environment),
+      );
+
       const {getFragment: getFragmentFromTag} = environment.unstable_internal;
       const fragments = mapObject(fragmentSpec, getFragmentFromTag);
       Container = createContainerWithFragments(ComponentClass, fragments);
-      RelayContainerProxy.proxyMethods(Container, ComponentClass);
+
+      // Attach static lifecycle to wrapper component so React can see it.
+      ContainerConstructor.getDerivedStateFromProps = (Container: any).getDerivedStateFromProps;
     }
-    /* $FlowFixMe(>=0.53.0) This comment suppresses an
-     * error when upgrading Flow's support for React. Common errors found when
-     * upgrading Flow's React support are documented at
-     * https://fburl.com/eq7bs81w */
-    return new Container(props, context);
+    // $FlowFixMe
+    return new Container(props);
   }
-  ContainerConstructor.contextTypes = containerContextTypes;
-  ContainerConstructor.displayName = containerName;
+
+  function forwardRef(props, ref) {
+    const context = readContext(ReactRelayContext);
+    invariant(
+      context,
+      `${containerName} tried to render a context that was ` +
+        `not valid this means that ${containerName} was rendered outside of a ` +
+        'query renderer.',
+    );
+    return (
+      <ContainerConstructor
+        {...props}
+        __relayContext={context}
+        componentRef={props.componentRef || ref}
+      />
+    );
+  }
+  forwardRef.displayName = containerName;
+  const ForwardContainer = React.forwardRef(forwardRef);
 
   // Classic container static methods
-  ContainerConstructor.getFragment = getFragment;
-  ContainerConstructor.getFragmentNames = () => Object.keys(fragmentSpec);
-  ContainerConstructor.hasFragment = name => fragmentSpec.hasOwnProperty(name);
-  ContainerConstructor.hasVariable = hasVariable;
+  /* $FlowFixMe(>=0.89.0 site=www,mobile,react_native_fb,oss) Suppressing errors
+   * found while preparing to upgrade to 0.89.0 */
+  ForwardContainer.getFragment = getFragment;
+  /* $FlowFixMe(>=0.89.0 site=www,mobile,react_native_fb,oss) Suppressing errors
+   * found while preparing to upgrade to 0.89.0 */
+  ForwardContainer.getFragmentNames = () => Object.keys(fragmentSpec);
+  /* $FlowFixMe(>=0.89.0 site=www,mobile,react_native_fb,oss) Suppressing errors
+   * found while preparing to upgrade to 0.89.0 */
+  ForwardContainer.hasFragment = name => fragmentSpec.hasOwnProperty(name);
+  /* $FlowFixMe(>=0.89.0 site=www,mobile,react_native_fb,oss) Suppressing errors
+   * found while preparing to upgrade to 0.89.0 */
+  ForwardContainer.hasVariable = hasVariable;
+
+  if (__DEV__) {
+    /* $FlowFixMe(>=0.89.0 site=www,mobile,react_native_fb,oss) Suppressing
+     * errors found while preparing to upgrade to 0.89.0 */
+    ForwardContainer.__ComponentClass = ComponentClass;
+  }
 
   // Create a back-reference from the Component to the Container for cases
   // where a Classic Component might refer to itself, expecting a Container.
-  /* $FlowFixMe(>=0.53.0) This comment suppresses an error
-   * when upgrading Flow's support for React. Common errors found when
-   * upgrading Flow's React support are documented at
-   * https://fburl.com/eq7bs81w */
-  ComponentClass.__container__ = ContainerConstructor;
+  (ComponentClass: any).__container__ = ForwardContainer;
 
-  return (ContainerConstructor: any);
+  return ForwardContainer;
 }
 
-module.exports = {injectDefaultVariablesProvider, buildCompatContainer};
+module.exports = {
+  injectDefaultVariablesProvider,
+  injectCompatLoggingFunction,
+  buildCompatContainer,
+};
