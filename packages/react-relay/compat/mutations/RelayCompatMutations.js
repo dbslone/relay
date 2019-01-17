@@ -1,10 +1,9 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule RelayCompatMutations
  * @flow
  * @format
  */
@@ -17,65 +16,83 @@ const warning = require('warning');
 const {
   getRelayClassicEnvironment,
   getRelayModernEnvironment,
-} = require('RelayCompatEnvironment');
-const {applyOptimisticMutation, commitMutation} = require('RelayRuntime');
+} = require('../RelayCompatEnvironment');
+const {applyOptimisticMutation, commitMutation} = require('relay-runtime');
 
-import type {ConcreteOperationDefinition} from 'ConcreteQuery';
-import type {Disposable} from 'RelayCombinedEnvironmentTypes';
-import type {CompatEnvironment} from 'RelayCompatTypes';
-import type {Environment as ClassicEnvironment} from 'RelayEnvironmentTypes';
-import type {OptimisticMutationConfig} from 'applyRelayModernOptimisticMutation';
-import type {MutationConfig} from 'commitRelayModernMutation';
+import type {Environment as ClassicEnvironment} from '../../classic/environment/RelayEnvironmentTypes';
+import type {ConcreteOperationDefinition} from '../../classic/query/ConcreteQuery';
+import type {CompatEnvironment} from '../react/RelayCompatTypes';
+import type {
+  Disposable,
+  MutationConfig,
+  OptimisticMutationConfig,
+} from 'relay-runtime';
 
-const RelayCompatMutations = {
-  commitUpdate<T>(
-    environment: CompatEnvironment,
-    config: MutationConfig<T>,
-  ): Disposable {
-    const relayStaticEnvironment = getRelayModernEnvironment(environment);
-    if (relayStaticEnvironment) {
-      return commitMutation(relayStaticEnvironment, config);
-    } else {
-      const relayClassicEnvironment = getRelayClassicEnvironment(environment);
-      invariant(
-        relayClassicEnvironment,
-        'RelayCompatMutations: Expected an object that conforms to the ' +
-          '`RelayEnvironmentInterface`, got `%s`.',
-        environment,
-      );
-      return commitRelayClassicMutation(
-        // getRelayClassicEnvironment returns a RelayEnvironmentInterface
-        // (classic APIs), but we need the modern APIs on old core here.
-        (relayClassicEnvironment: $FixMe),
-        config,
-      );
-    }
-  },
+/**
+ * Sets a logging function that logs whether a compat mutation was executed in
+ * a modern or classic environment.
+ */
+type CompatLoggingFunction = (moduleName: string, isModern: boolean) => void;
+let injectedCompatLoggingFunction: CompatLoggingFunction = () => {};
+function injectCompatLoggingFunction(loggingFunction: CompatLoggingFunction) {
+  injectedCompatLoggingFunction = loggingFunction;
+}
 
-  applyUpdate(
-    environment: CompatEnvironment,
-    config: OptimisticMutationConfig,
-  ): Disposable {
-    const relayStaticEnvironment = getRelayModernEnvironment(environment);
-    if (relayStaticEnvironment) {
-      return applyOptimisticMutation(relayStaticEnvironment, config);
-    } else {
-      const relayClassicEnvironment = getRelayClassicEnvironment(environment);
-      invariant(
-        relayClassicEnvironment,
-        'RelayCompatMutations: Expected an object that conforms to the ' +
-          '`RelayEnvironmentInterface`, got `%s`.',
-        environment,
-      );
-      return applyRelayClassicMutation(
-        // getRelayClassicEnvironment returns a RelayEnvironmentInterface
-        // (classic APIs), but we need the modern APIs on old core here.
-        (relayClassicEnvironment: $FixMe),
-        config,
-      );
-    }
-  },
-};
+function commitUpdate<T>(
+  environment: CompatEnvironment,
+  config: MutationConfig<T>,
+  // `moduleName` is used to log the environment type in compat mode
+  moduleName: string = 'unknown',
+): Disposable {
+  const modernEnvironment = getRelayModernEnvironment(environment);
+  if (modernEnvironment) {
+    injectedCompatLoggingFunction(moduleName, true);
+    return commitMutation(modernEnvironment, config);
+  } else {
+    const classicEnvironment = getRelayClassicEnvironment(environment);
+    invariant(
+      classicEnvironment,
+      'RelayCompatMutations: Expected an object that conforms to the ' +
+        '`RelayEnvironmentInterface`, got `%s`.',
+      environment,
+    );
+    injectedCompatLoggingFunction(moduleName, false);
+    return commitRelayClassicMutation(
+      // getRelayClassicEnvironment returns a RelayEnvironmentInterface
+      // (classic APIs), but we need the modern APIs on old core here.
+      (classicEnvironment: $FlowFixMe),
+      config,
+    );
+  }
+}
+
+function applyUpdate(
+  environment: CompatEnvironment,
+  config: OptimisticMutationConfig,
+  // `moduleName` is used to log the environment type in compat mode
+  moduleName: string = 'unknown',
+): Disposable {
+  const modernEnvironment = getRelayModernEnvironment(environment);
+  if (modernEnvironment) {
+    injectedCompatLoggingFunction(moduleName, true);
+    return applyOptimisticMutation(modernEnvironment, config);
+  } else {
+    const classicEnvironment = getRelayClassicEnvironment(environment);
+    invariant(
+      classicEnvironment,
+      'RelayCompatMutations: Expected an object that conforms to the ' +
+        '`RelayEnvironmentInterface`, got `%s`.',
+      environment,
+    );
+    injectedCompatLoggingFunction(moduleName, false);
+    return applyRelayClassicMutation(
+      // getRelayClassicEnvironment returns a RelayEnvironmentInterface
+      // (classic APIs), but we need the modern APIs on old core here.
+      (classicEnvironment: $FlowFixMe),
+      config,
+    );
+  }
+}
 
 function commitRelayClassicMutation<T>(
   environment: ClassicEnvironment,
@@ -89,8 +106,8 @@ function commitRelayClassicMutation<T>(
     uploadables,
   }: MutationConfig<T>,
 ): Disposable {
-  const {getOperation} = environment.unstable_internal;
-  const operation = getOperation(mutation);
+  const {getRequest} = environment.unstable_internal;
+  const operation = getRequest(mutation);
   // TODO: remove this check after we fix flow.
   if (typeof optimisticResponse === 'function') {
     warning(
@@ -122,8 +139,11 @@ function applyRelayClassicMutation(
   environment: ClassicEnvironment,
   {configs, mutation, optimisticResponse, variables}: OptimisticMutationConfig,
 ): Disposable {
-  const {getOperation} = environment.unstable_internal;
-  const operation = getOperation(mutation);
+  const {getRequest} = environment.unstable_internal;
+  const operation = getRequest(mutation);
+  if (operation.operation !== 'mutation') {
+    throw new Error('RelayCompatMutations: Expected mutation operation');
+  }
 
   // RelayClassic can't update anything without response.
   if (!optimisticResponse) {
@@ -167,4 +187,8 @@ function validateOptimisticResponse(
   return optimisticResponse;
 }
 
-module.exports = RelayCompatMutations;
+module.exports = {
+  applyUpdate,
+  commitUpdate,
+  injectCompatLoggingFunction,
+};

@@ -1,59 +1,63 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule RelayResponseNormalizer
  * @flow
  * @format
  */
 
 'use strict';
 
-const RelayConcreteNode = require('RelayConcreteNode');
-const RelayModernRecord = require('RelayModernRecord');
-const RelayProfiler = require('RelayProfiler');
+const RelayModernRecord = require('./RelayModernRecord');
+const RelayProfiler = require('../util/RelayProfiler');
 
-const formatStorageKey = require('formatStorageKey');
-const generateRelayClientID = require('generateRelayClientID');
-const getRelayHandleKey = require('getRelayHandleKey');
+const generateRelayClientID = require('./generateRelayClientID');
 const invariant = require('invariant');
 const warning = require('warning');
 
 const {
-  getHandleFilterValues,
-  getArgumentValues,
-  getStorageKey,
-  TYPENAME_KEY,
-} = require('RelayStoreUtils');
-
-import type {Record} from 'RelayCombinedEnvironmentTypes';
-import type {
-  ConcreteField,
-  ConcreteLinkedField,
-  ConcreteNode,
-  ConcreteSelection,
-} from 'RelayConcreteNode';
-import type {DataID} from 'RelayInternalTypes';
-import type {PayloadData} from 'RelayNetworkTypes';
-import type {
-  HandleFieldPayload,
-  MutableRecordSource,
-  Selector,
-} from 'RelayStoreTypes';
-import type {Variables} from 'RelayTypes';
-
-const {
   CONDITION,
+  FRAGMENT,
+  FRAGMENT_SPREAD,
   INLINE_FRAGMENT,
   LINKED_FIELD,
   LINKED_HANDLE,
+  MATCH_FIELD,
   SCALAR_FIELD,
   SCALAR_HANDLE,
-} = RelayConcreteNode;
+} = require('../util/RelayConcreteNode');
+const {
+  getArgumentValues,
+  getHandleStorageKey,
+  getStorageKey,
+  MATCH_FRAGMENT_KEY,
+  TYPENAME_KEY,
+} = require('./RelayStoreUtils');
+
+import type {PayloadData} from '../network/RelayNetworkTypes';
+import type {
+  NormalizationField,
+  NormalizationLinkedField,
+  NormalizationMatchField,
+  NormalizationNode,
+} from '../util/NormalizationNode';
+import type {Record} from '../util/RelayCombinedEnvironmentTypes';
+import type {DataID, Variables} from '../util/RelayRuntimeTypes';
+import type {
+  HandleFieldPayload,
+  MatchFieldPayload,
+  MutableRecordSource,
+  NormalizationSelector,
+} from './RelayStoreTypes';
 
 export type NormalizationOptions = {handleStrippedNulls: boolean};
+
+export type NormalizedResponse = {|
+  fieldPayloads: Array<HandleFieldPayload>,
+  matchPayloads: Array<MatchFieldPayload>,
+|};
 
 /**
  * Normalizes the results of a query and standard GraphQL response, writing the
@@ -64,10 +68,10 @@ export type NormalizationOptions = {handleStrippedNulls: boolean};
  */
 function normalize(
   recordSource: MutableRecordSource,
-  selector: Selector,
+  selector: NormalizationSelector,
   response: PayloadData,
   options: NormalizationOptions = {handleStrippedNulls: false},
-): Array<HandleFieldPayload> {
+): NormalizedResponse {
   const {dataID, node, variables} = selector;
   const normalizer = new RelayResponseNormalizer(
     recordSource,
@@ -84,9 +88,10 @@ function normalize(
  */
 class RelayResponseNormalizer {
   _handleFieldPayloads: Array<HandleFieldPayload>;
+  _handleStrippedNulls: boolean;
+  _matchFieldPayloads: Array<MatchFieldPayload>;
   _recordSource: MutableRecordSource;
   _variables: Variables;
-  _handleStrippedNulls: boolean;
 
   constructor(
     recordSource: MutableRecordSource,
@@ -94,24 +99,28 @@ class RelayResponseNormalizer {
     options: NormalizationOptions,
   ) {
     this._handleFieldPayloads = [];
+    this._handleStrippedNulls = options.handleStrippedNulls;
+    this._matchFieldPayloads = [];
     this._recordSource = recordSource;
     this._variables = variables;
-    this._handleStrippedNulls = options.handleStrippedNulls;
   }
 
   normalizeResponse(
-    node: ConcreteNode,
+    node: NormalizationNode,
     dataID: DataID,
     data: PayloadData,
-  ): Array<HandleFieldPayload> {
+  ): NormalizedResponse {
     const record = this._recordSource.get(dataID);
     invariant(
       record,
       'RelayResponseNormalizer(): Expected root record `%s` to exist.',
       dataID,
     );
-    this._traverseSelections(node.selections, record, data);
-    return this._handleFieldPayloads;
+    this._traverseSelections(node, record, data);
+    return {
+      fieldPayloads: this._handleFieldPayloads,
+      matchPayloads: this._matchFieldPayloads,
+    };
   }
 
   _getVariableValue(name: string): mixed {
@@ -134,22 +143,22 @@ class RelayResponseNormalizer {
   }
 
   _traverseSelections(
-    selections: Array<ConcreteSelection>,
+    node: NormalizationNode,
     record: Record,
     data: PayloadData,
   ): void {
-    selections.forEach(selection => {
+    node.selections.forEach(selection => {
       if (selection.kind === SCALAR_FIELD || selection.kind === LINKED_FIELD) {
-        this._normalizeField(selection, record, data);
+        this._normalizeField(node, selection, record, data);
       } else if (selection.kind === CONDITION) {
         const conditionValue = this._getVariableValue(selection.condition);
         if (conditionValue === selection.passingValue) {
-          this._traverseSelections(selection.selections, record, data);
+          this._traverseSelections(selection, record, data);
         }
       } else if (selection.kind === INLINE_FRAGMENT) {
         const typeName = RelayModernRecord.getType(record);
         if (typeName === selection.type) {
-          this._traverseSelections(selection.selections, record, data);
+          this._traverseSelections(selection, record, data);
         }
       } else if (
         selection.kind === LINKED_HANDLE ||
@@ -158,21 +167,8 @@ class RelayResponseNormalizer {
         const args = selection.args
           ? getArgumentValues(selection.args, this._variables)
           : {};
-
-        const fieldKey = formatStorageKey(selection.name, args);
-        let handleKey = getRelayHandleKey(
-          selection.handle,
-          selection.key,
-          selection.name,
-        );
-        if (selection.filters) {
-          const filterValues = getHandleFilterValues(
-            selection.args || [],
-            selection.filters,
-            this._variables,
-          );
-          handleKey = formatStorageKey(handleKey, filterValues);
-        }
+        const fieldKey = getStorageKey(selection, this._variables);
+        const handleKey = getHandleStorageKey(selection, this._variables);
         this._handleFieldPayloads.push({
           args,
           dataID: RelayModernRecord.getDataID(record),
@@ -180,7 +176,19 @@ class RelayResponseNormalizer {
           handle: selection.handle,
           handleKey,
         });
+      } else if (selection.kind === MATCH_FIELD) {
+        this._normalizeMatchField(node, selection, record, data);
+      } else if (
+        selection.kind === FRAGMENT ||
+        selection.kind === FRAGMENT_SPREAD
+      ) {
+        invariant(
+          false,
+          'RelayResponseNormalizer(): Unexpected ast kind `%s`.',
+          selection.kind,
+        );
       } else {
+        (selection: empty);
         invariant(
           false,
           'RelayResponseNormalizer(): Unexpected ast kind `%s`.',
@@ -190,7 +198,87 @@ class RelayResponseNormalizer {
     });
   }
 
-  _normalizeField(selection: ConcreteField, record: Record, data: PayloadData) {
+  _normalizeMatchField(
+    parent: NormalizationNode,
+    field: NormalizationMatchField,
+    record: Record,
+    data: PayloadData,
+  ) {
+    invariant(
+      typeof data === 'object' && data,
+      'writeField(): Expected data for field `%s` to be an object.',
+      field.name,
+    );
+    const responseKey = field.alias || field.name;
+    const storageKey = getStorageKey(field, this._variables);
+    const fieldValue = data[responseKey];
+    if (fieldValue == null) {
+      if (fieldValue === undefined && !this._handleStrippedNulls) {
+        // If we're not stripping nulls, undefined fields are unset
+        return;
+      }
+      if (__DEV__) {
+        warning(
+          parent.kind === LINKED_FIELD && parent.concreteType == null
+            ? true
+            : Object.prototype.hasOwnProperty.call(data, responseKey),
+          'RelayResponseNormalizer(): Payload did not contain a value ' +
+            'for field `%s: %s`. Check that you are parsing with the same ' +
+            'query that was used to fetch the payload.',
+          responseKey,
+          storageKey,
+        );
+      }
+      RelayModernRecord.setValue(record, storageKey, null);
+      return;
+    }
+    invariant(
+      typeof fieldValue === 'object' && fieldValue,
+      'RelayResponseNormalizer: Expected data for field `%s` to be an object.',
+      storageKey,
+    );
+    const typeName: string = this._getRecordType(fieldValue);
+    const match = field.matchesByType[typeName];
+    if (match == null) {
+      RelayModernRecord.setValue(record, storageKey, null);
+      return;
+    }
+    const nextID =
+      fieldValue.id ||
+      // Reuse previously generated client IDs
+      RelayModernRecord.getLinkedRecordID(record, storageKey) ||
+      generateRelayClientID(RelayModernRecord.getDataID(record), storageKey);
+    invariant(
+      typeof nextID === 'string',
+      'RelayResponseNormalizer: Expected id on field `%s` to be a string.',
+      storageKey,
+    );
+    RelayModernRecord.setLinkedRecordID(record, storageKey, nextID);
+    let nextRecord = this._recordSource.get(nextID);
+    if (!nextRecord) {
+      nextRecord = RelayModernRecord.create(nextID, typeName);
+      this._recordSource.set(nextID, nextRecord);
+    } else if (__DEV__) {
+      this._validateRecordType(nextRecord, field, fieldValue);
+    }
+    const operationReference = fieldValue[MATCH_FRAGMENT_KEY];
+    if (operationReference != null) {
+      this._matchFieldPayloads.push({
+        operationReference,
+        dataID: nextID,
+        data: fieldValue,
+        typeName,
+        variables: this._variables,
+      });
+    }
+  }
+
+  _normalizeField(
+    parent: NormalizationNode,
+    selection: NormalizationField,
+    record: Record,
+    data: PayloadData,
+  ) {
     invariant(
       typeof data === 'object' && data,
       'writeField(): Expected data for field `%s` to be an object.',
@@ -206,7 +294,9 @@ class RelayResponseNormalizer {
       }
       if (__DEV__) {
         warning(
-          Object.prototype.hasOwnProperty.call(data, responseKey),
+          parent.kind === LINKED_FIELD && parent.concreteType == null
+            ? true
+            : Object.prototype.hasOwnProperty.call(data, responseKey),
           'RelayResponseNormalizer(): Payload did not contain a value ' +
             'for field `%s: %s`. Check that you are parsing with the same ' +
             'query that was used to fetch the payload.',
@@ -220,15 +310,30 @@ class RelayResponseNormalizer {
 
     if (selection.kind === SCALAR_FIELD) {
       RelayModernRecord.setValue(record, storageKey, fieldValue);
-    } else if (selection.plural) {
-      this._normalizePluralLink(selection, record, storageKey, fieldValue);
+    } else if (selection.kind === LINKED_FIELD) {
+      if (selection.plural) {
+        this._normalizePluralLink(selection, record, storageKey, fieldValue);
+      } else {
+        this._normalizeLink(selection, record, storageKey, fieldValue);
+      }
+    } else if (selection.kind === MATCH_FIELD) {
+      invariant(
+        false,
+        'RelayResponseNormalizer(): Unexpected ast kind `%s` during normalization.',
+        selection.kind,
+      );
     } else {
-      this._normalizeLink(selection, record, storageKey, fieldValue);
+      (selection: empty);
+      invariant(
+        false,
+        'RelayResponseNormalizer(): Unexpected ast kind `%s` during normalization.',
+        selection.kind,
+      );
     }
   }
 
   _normalizeLink(
-    field: ConcreteLinkedField,
+    field: NormalizationLinkedField,
     record: Record,
     storageKey: string,
     fieldValue: mixed,
@@ -257,11 +362,11 @@ class RelayResponseNormalizer {
     } else if (__DEV__) {
       this._validateRecordType(nextRecord, field, fieldValue);
     }
-    this._traverseSelections(field.selections, nextRecord, fieldValue);
+    this._traverseSelections(field, nextRecord, fieldValue);
   }
 
   _normalizePluralLink(
-    field: ConcreteLinkedField,
+    field: NormalizationLinkedField,
     record: Record,
     storageKey: string,
     fieldValue: mixed,
@@ -311,7 +416,7 @@ class RelayResponseNormalizer {
       } else if (__DEV__) {
         this._validateRecordType(nextRecord, field, item);
       }
-      this._traverseSelections(field.selections, nextRecord, item);
+      this._traverseSelections(field, nextRecord, item);
     });
     RelayModernRecord.setLinkedRecordIDs(record, storageKey, nextIDs);
   }
@@ -321,10 +426,13 @@ class RelayResponseNormalizer {
    */
   _validateRecordType(
     record: Record,
-    field: ConcreteLinkedField,
+    field: NormalizationLinkedField | NormalizationMatchField,
     payload: Object,
   ): void {
-    const typeName = field.concreteType || this._getRecordType(payload);
+    const typeName =
+      field.kind === 'LinkedField'
+        ? field.concreteType || this._getRecordType(payload)
+        : this._getRecordType(payload);
     warning(
       RelayModernRecord.getType(record) === typeName,
       'RelayResponseNormalizer: Invalid record `%s`. Expected %s to be ' +

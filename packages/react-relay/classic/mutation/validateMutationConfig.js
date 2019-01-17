@@ -1,10 +1,9 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule validateMutationConfig
  * @flow
  * @format
  */
@@ -13,10 +12,10 @@
 
 const invariant = require('invariant');
 const sprintf = require('sprintf');
-const testEditDistance = require('testEditDistance');
+const testEditDistance = require('../tools/testEditDistance');
 const warning = require('warning');
 
-import type {RelayMutationConfig} from 'RelayTypes';
+import type {DeclarativeMutationConfig} from 'relay-runtime';
 
 type PropertyDescription = {
   [name: string]: Validator,
@@ -52,7 +51,7 @@ const REQUIRED = {
 };
 
 function validateMutationConfig(
-  config: RelayMutationConfig,
+  config: DeclarativeMutationConfig,
   name: string,
 ): void {
   function assertValid(properties: PropertyDescription): void {

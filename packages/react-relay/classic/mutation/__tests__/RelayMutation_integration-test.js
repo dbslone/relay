@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -14,9 +14,9 @@ require('configureForRelayOSS');
 
 jest.useFakeTimers().mock('relayUnstableBatchedUpdates');
 
-const RelayClassic = require('RelayClassic');
-const RelayEnvironment = require('RelayEnvironment');
-const RelayMutation = require('RelayMutation');
+const RelayClassic = require('../../RelayPublic');
+const RelayEnvironment = require('../../store/RelayEnvironment');
+const RelayMutation = require('../RelayMutation');
 
 describe('RelayMutation', () => {
   let bodyID;

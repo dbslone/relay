@@ -1,10 +1,9 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule RelayEnvironmentTypes
  * @flow
  * @format
  */
@@ -15,39 +14,52 @@ import type {
   ConcreteFragment,
   ConcreteFragmentDefinition,
   ConcreteOperationDefinition,
-} from 'ConcreteQuery';
+} from '../query/ConcreteQuery';
 import type {
   CEnvironment,
   CFragmentMap,
+  CNormalizationSelector,
   COperationSelector,
+  CReaderSelector,
   CRelayContext,
-  CSelector,
   CSnapshot,
   CUnstableEnvironmentCore,
+} from 'relay-runtime';
+import type {
+  DeclarativeMutationConfig,
   Disposable,
-} from 'RelayCombinedEnvironmentTypes';
-import type {GraphQLTaggedNode} from 'RelayModernGraphQLTag';
-import type {UploadableMap} from 'RelayNetworkTypes';
-import type {Variables, RelayMutationConfig} from 'RelayTypes';
+  GraphQLTaggedNode,
+  UploadableMap,
+  Variables,
+} from 'relay-runtime';
 
 type TEnvironment = Environment;
 type TFragment = ConcreteFragmentDefinition;
 type TGraphQLTaggedNode = GraphQLTaggedNode;
-type TNode = ConcreteFragment;
-type TOperation = ConcreteOperationDefinition;
-type TPayload = Selector;
+type TReaderNode = ConcreteFragment;
+type TNormalizationNode = ConcreteFragment;
+type TPayload = ReaderSelector;
+type TRequest = ConcreteOperationDefinition;
+type TReaderSelector = CReaderSelector<TReaderNode>;
 
 export type FragmentMap = CFragmentMap<TFragment>;
-export type OperationSelector = COperationSelector<TNode, TOperation>;
+export type OperationSelector = COperationSelector<
+  TReaderNode,
+  TNormalizationNode,
+  TRequest,
+>;
 export type RelayContext = CRelayContext<TEnvironment>;
-export type Selector = CSelector<TNode>;
-export type Snapshot = CSnapshot<TNode>;
+export type ReaderSelector = TReaderSelector;
+export type NormalizationSelector = CNormalizationSelector<TNormalizationNode>;
+export type Snapshot = CSnapshot<TReaderNode>;
 export type UnstableEnvironmentCore = CUnstableEnvironmentCore<
   TEnvironment,
   TFragment,
   TGraphQLTaggedNode,
-  TNode,
-  TOperation,
+  TReaderNode,
+  TNormalizationNode,
+  TRequest,
+  TReaderSelector,
 >;
 
 /**
@@ -59,9 +71,11 @@ export interface Environment
     TEnvironment,
     TFragment,
     TGraphQLTaggedNode,
-    TNode,
-    TOperation,
+    TReaderNode,
+    TNormalizationNode,
+    TRequest,
     TPayload,
+    TReaderSelector,
   > {
   /**
    * Applies an optimistic mutation to the store without committing it to the
@@ -69,11 +83,11 @@ export interface Environment
    * later time.
    */
   applyMutation(config: {|
-    configs: Array<RelayMutationConfig>,
+    configs: Array<DeclarativeMutationConfig>,
     operation: ConcreteOperationDefinition,
     optimisticResponse: Object,
     variables: Variables,
-  |}): Disposable,
+  |}): Disposable;
 
   /**
    * Applies an optimistic mutation if provided and commits the mutation to the
@@ -81,7 +95,7 @@ export interface Environment
    * and `onError` callbacks when the server response is returned.
    */
   sendMutation<ResponseType>(config: {|
-    configs: Array<RelayMutationConfig>,
+    configs: Array<DeclarativeMutationConfig>,
     onCompleted?: ?(response: ResponseType) => void,
     onError?: ?(error: Error) => void,
     operation: ConcreteOperationDefinition,
@@ -89,5 +103,5 @@ export interface Environment
     optimisticResponse?: ?Object,
     variables: Variables,
     uploadables?: UploadableMap,
-  |}): Disposable,
+  |}): Disposable;
 }

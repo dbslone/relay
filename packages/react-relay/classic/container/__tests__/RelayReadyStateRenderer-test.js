@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -10,23 +10,19 @@
 
 'use strict';
 
-jest.enableAutomock();
+jest.mock('../../query-config/RelayQueryConfig');
 
 const React = require('React');
 const ReactTestUtils = require('ReactTestUtils');
-const RelayClassic = require('RelayClassic');
-const RelayEnvironment = require('RelayEnvironment');
-const RelayQueryConfig = require('RelayQueryConfig');
-const RelayReadyStateRenderer = require('RelayReadyStateRenderer');
-
-jest.dontMock('RelayStaticContainer');
-const RelayStaticContainer = require('RelayStaticContainer');
-
-jest.dontMock('pretty-format');
+const Relay = require('../../RelayPublic');
+const RelayEnvironment = require('../../store/RelayEnvironment');
+const RelayQueryConfig = require('../../query-config/RelayQueryConfig');
+const RelayReadyStateRenderer = require('../RelayReadyStateRenderer');
+const RelayStaticContainer = require('../RelayStaticContainer');
 const prettyFormat = require('pretty-format');
-
-jest.dontMock('react-test-renderer');
 const ReactTestRenderer = require('react-test-renderer');
+const ReactRelayContext = require('../../../modern/ReactRelayContext');
+const readContext = require('../../../modern/readContext');
 
 describe('RelayReadyStateRenderer', () => {
   /**
@@ -41,8 +37,8 @@ describe('RelayReadyStateRenderer', () => {
    */
   const anyRecord = requirements => {
     const expected = {
-      __dataID__: jasmine.any(String),
-      __fragments__: jasmine.any(Object),
+      __dataID__: expect.any(String),
+      __fragments__: expect.any(Object),
     };
     if (requirements.hasOwnProperty('dataID')) {
       expected.__dataID__ = requirements.dataID;
@@ -50,7 +46,7 @@ describe('RelayReadyStateRenderer', () => {
     if (requirements.hasOwnProperty('fragment')) {
       const concreteFragmentID = requirements.fragment.getFragment({}).id;
       expected.__fragments__ = jasmine.objectContaining({
-        [concreteFragmentID]: [jasmine.any(Object)],
+        [concreteFragmentID]: [expect.any(Object)],
       });
     }
     return jasmine.objectContaining(expected);
@@ -86,14 +82,14 @@ describe('RelayReadyStateRenderer', () => {
     const TestQueryConfig = RelayQueryConfig.genMock({
       routeName: 'TestQueryConfig',
       queries: {
-        node: () => RelayClassic.QL`query { node(id: "123") }`,
+        node: () => Relay.QL`query { node(id: "123") }`,
       },
     });
 
     defaultProps = {
-      Container: RelayClassic.createContainer(() => <div />, {
+      Container: Relay.createContainer(() => <div />, {
         fragments: {
-          node: () => RelayClassic.QL`fragment on Node { id }`,
+          node: () => Relay.QL`fragment on Node { id }`,
         },
       }),
       environment: new RelayEnvironment(),
@@ -235,7 +231,7 @@ describe('RelayReadyStateRenderer', () => {
       const AnotherQueryConfig = RelayQueryConfig.genMock({
         routeName: 'AnotherQueryConfig',
         queries: {
-          node: () => RelayClassic.QL`query { node(id: "456") }`,
+          node: () => Relay.QL`query { node(id: "456") }`,
         },
       });
       expect(
@@ -253,15 +249,15 @@ describe('RelayReadyStateRenderer', () => {
       const AnotherQueryConfig = RelayQueryConfig.genMock({
         routeName: 'AnotherQueryConfig',
         queries: {
-          me: () => RelayClassic.QL`query { me }`,
+          me: () => Relay.QL`query { me }`,
         },
       });
       const anotherQueryConfig = new AnotherQueryConfig();
       const environment = new RelayEnvironment();
       defaultProps = {
-        Container: RelayClassic.createContainer(() => <div />, {
+        Container: Relay.createContainer(() => <div />, {
           fragments: {
-            me: () => RelayClassic.QL`fragment on User { id }`,
+            me: () => Relay.QL`fragment on User { id }`,
           },
         }),
         environment,
@@ -301,15 +297,15 @@ describe('RelayReadyStateRenderer', () => {
       const AnotherQueryConfig = RelayQueryConfig.genMock({
         routeName: 'AnotherQueryConfig',
         queries: {
-          me: () => RelayClassic.QL`query { me }`,
+          me: () => Relay.QL`query { me }`,
         },
       });
       const anotherQueryConfig = new AnotherQueryConfig();
       const environment = new RelayEnvironment();
       defaultProps = {
-        Container: RelayClassic.createContainer(() => <div />, {
+        Container: Relay.createContainer(() => <div />, {
           fragments: {
-            me: () => RelayClassic.QL`fragment on User { id }`,
+            me: () => Relay.QL`fragment on User { id }`,
           },
         }),
         environment,
@@ -360,9 +356,9 @@ describe('RelayReadyStateRenderer', () => {
         },
       });
 
-      const AnotherContainer = RelayClassic.createContainer(() => <div />, {
+      const AnotherContainer = Relay.createContainer(() => <div />, {
         fragments: {
-          node: () => RelayClassic.QL`fragment on Node { id }`,
+          node: () => Relay.QL`fragment on Node { id }`,
         },
       });
       expect(
@@ -386,7 +382,7 @@ describe('RelayReadyStateRenderer', () => {
       const AnotherQueryConfig = RelayQueryConfig.genMock({
         routeName: 'AnotherQueryConfig',
         queries: {
-          node: () => RelayClassic.QL`query { me }`,
+          node: () => Relay.QL`query { me }`,
         },
       });
 
@@ -541,15 +537,10 @@ describe('RelayReadyStateRenderer', () => {
 
   describe('context', () => {
     it('sets environment and query config on the React context', () => {
-      class TestComponent extends React.Component {
-        static contextTypes = {
-          relay: RelayClassic.PropTypes.RelayClassic,
-          route: RelayClassic.PropTypes.QueryConfig.isRequired,
-        };
-        render() {
-          this.props.onRenderContext(this.context);
-          return null;
-        }
+      function TestComponent({onRenderContext}) {
+        const context = readContext(ReactRelayContext);
+        onRenderContext(context);
+        return null;
       }
 
       const onRenderContext = jest.fn();
@@ -561,10 +552,8 @@ describe('RelayReadyStateRenderer', () => {
         />,
       );
       expect(onRenderContext).toBeCalledWith({
-        relay: {
-          environment: defaultProps.environment,
-          variables: {},
-        },
+        environment: defaultProps.environment,
+        variables: {},
         route: defaultProps.queryConfig,
       });
     });

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -13,15 +13,14 @@
 const FlattenTransform = require('FlattenTransform');
 const GraphQLCompilerContext = require('GraphQLCompilerContext');
 const GraphQLIRPrinter = require('GraphQLIRPrinter');
+const RelayMatchTransform = require('../../transforms/RelayMatchTransform');
 const RelayParser = require('RelayParser');
 const RelayRelayDirectiveTransform = require('RelayRelayDirectiveTransform');
 const RelayTestSchema = require('RelayTestSchema');
 
-const getGoldenMatchers = require('getGoldenMatchers');
+const {generateTestsFromFixtures} = require('RelayModernTestUtils');
 
 import type {FlattenOptions} from 'FlattenTransform';
-
-expect.extend(getGoldenMatchers(__filename));
 
 describe('FlattenTransform', () => {
   function printContextTransform(
@@ -30,47 +29,33 @@ describe('FlattenTransform', () => {
     return text => {
       const {transformASTSchema} = require('ASTConvert');
       const extendedSchema = transformASTSchema(RelayTestSchema, [
+        RelayMatchTransform.SCHEMA_EXTENSION,
         RelayRelayDirectiveTransform.SCHEMA_EXTENSION,
       ]);
-      let context = new GraphQLCompilerContext(RelayTestSchema).addAll(
-        RelayParser.parse(extendedSchema, text),
-      );
-
-      context = FlattenTransform.transform(context, options);
-
-      return context
+      return new GraphQLCompilerContext(RelayTestSchema, extendedSchema)
+        .addAll(RelayParser.parse(extendedSchema, text))
+        .applyTransforms([
+          RelayMatchTransform.transform,
+          FlattenTransform.transformWithOptions(options),
+        ])
         .documents()
         .map(doc => GraphQLIRPrinter.print(doc))
         .join('\n');
     };
   }
 
-  it('flattens inline fragments with compatible types', () => {
-    expect('fixtures/flatten-transform').toMatchGolden(
-      printContextTransform({}),
-    );
-  });
+  generateTestsFromFixtures(
+    `${__dirname}/fixtures/flatten-transform`,
+    printContextTransform({}),
+  );
 
-  it('optionally flattens abstract fragments', () => {
-    expect('fixtures/flatten-transform-option-flatten-abstract').toMatchGolden(
-      printContextTransform({flattenAbstractTypes: true}),
-    );
-  });
+  generateTestsFromFixtures(
+    `${__dirname}/fixtures/flatten-transform-option-flatten-inline`,
+    printContextTransform({flattenInlineFragments: true}),
+  );
 
-  it('flattens inline fragments', () => {
-    expect('fixtures/flatten-transform-option-flatten-inline').toMatchGolden(
-      printContextTransform({flattenInlineFragments: true}),
-    );
-  });
-
-  it('throws errors under some conditions', () => {
-    expect('fixtures/flatten-transform-errors').toMatchGolden(text => {
-      try {
-        printContextTransform({})(text);
-      } catch (error) {
-        return error.toString();
-      }
-      throw new Error('This transform should have thrown an error');
-    });
-  });
+  generateTestsFromFixtures(
+    `${__dirname}/fixtures/flatten-transform-errors`,
+    printContextTransform({flattenInlineFragments: true}),
+  );
 });

@@ -1,10 +1,9 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule RelayModernFragmentSpecResolver
  * @flow
  * @format
  */
@@ -12,27 +11,27 @@
 'use strict';
 
 const invariant = require('invariant');
-const isScalarAndEqual = require('isScalarAndEqual');
+const isScalarAndEqual = require('../util/isScalarAndEqual');
 
 const {
   areEqualSelectors,
   getSelectorsFromObject,
-} = require('RelayModernSelector');
+} = require('./RelayModernSelector');
 
 import type {
-  Disposable,
   FragmentSpecResolver,
   FragmentSpecResults,
   SelectorData,
-} from 'RelayCombinedEnvironmentTypes';
+} from '../util/RelayCombinedEnvironmentTypes';
+import type {Disposable, Variables} from '../util/RelayRuntimeTypes';
 import type {
   Environment,
   FragmentMap,
+  OwnedReaderSelector,
   RelayContext,
-  Selector,
+  ReaderSelector,
   Snapshot,
-} from 'RelayStoreTypes';
-import type {Variables} from 'RelayTypes';
+} from './RelayStoreTypes';
 
 type Props = {[key: string]: mixed};
 type Resolvers = {[key: string]: ?(SelectorListResolver | SelectorResolver)};
@@ -57,7 +56,7 @@ type Resolvers = {[key: string]: ?(SelectorListResolver | SelectorResolver)};
  * recomputed the first time `resolve()` is called.
  */
 class RelayModernFragmentSpecResolver implements FragmentSpecResolver {
-  _callback: () => void;
+  _callback: ?() => void;
   _context: RelayContext;
   _data: Object;
   _fragments: FragmentMap;
@@ -69,7 +68,7 @@ class RelayModernFragmentSpecResolver implements FragmentSpecResolver {
     context: RelayContext,
     fragments: FragmentMap,
     props: Props,
-    callback: () => void,
+    callback?: () => void,
   ) {
     this._callback = callback;
     this._context = context;
@@ -122,26 +121,30 @@ class RelayModernFragmentSpecResolver implements FragmentSpecResolver {
     return this._data;
   }
 
+  setCallback(callback: () => void): void {
+    this._callback = callback;
+  }
+
   setProps(props: Props): void {
-    const selectors = getSelectorsFromObject(
+    const ownedSelectors = getSelectorsFromObject(
       this._context.variables,
       this._fragments,
       props,
     );
-    for (const key in selectors) {
-      if (selectors.hasOwnProperty(key)) {
-        const selector = selectors[key];
+    for (const key in ownedSelectors) {
+      if (ownedSelectors.hasOwnProperty(key)) {
+        const ownedSelector = ownedSelectors[key];
         let resolver = this._resolvers[key];
-        if (selector == null) {
+        if (ownedSelector == null) {
           if (resolver != null) {
             resolver.dispose();
           }
           resolver = null;
-        } else if (Array.isArray(selector)) {
+        } else if (Array.isArray(ownedSelector)) {
           if (resolver == null) {
             resolver = new SelectorListResolver(
               this._context.environment,
-              selector,
+              ownedSelector,
               this._onChange,
             );
           } else {
@@ -150,13 +153,13 @@ class RelayModernFragmentSpecResolver implements FragmentSpecResolver {
               'RelayModernFragmentSpecResolver: Expected prop `%s` to always be an array.',
               key,
             );
-            resolver.setSelectors(selector);
+            resolver.setSelectors(ownedSelector);
           }
         } else {
           if (resolver == null) {
             resolver = new SelectorResolver(
               this._context.environment,
-              selector,
+              ownedSelector,
               this._onChange,
             );
           } else {
@@ -165,7 +168,7 @@ class RelayModernFragmentSpecResolver implements FragmentSpecResolver {
               'RelayModernFragmentSpecResolver: Expected prop `%s` to always be an object.',
               key,
             );
-            resolver.setSelector(selector);
+            resolver.setSelector(ownedSelector);
           }
         }
         this._resolvers[key] = resolver;
@@ -189,7 +192,10 @@ class RelayModernFragmentSpecResolver implements FragmentSpecResolver {
 
   _onChange = (): void => {
     this._stale = true;
-    this._callback();
+
+    if (typeof this._callback === 'function') {
+      this._callback();
+    }
   };
 }
 
@@ -200,19 +206,19 @@ class SelectorResolver {
   _callback: () => void;
   _data: ?SelectorData;
   _environment: Environment;
-  _selector: Selector;
+  _ownedSelector: OwnedReaderSelector;
   _subscription: ?Disposable;
 
   constructor(
     environment: Environment,
-    selector: Selector,
+    ownedSelector: OwnedReaderSelector,
     callback: () => void,
   ) {
-    const snapshot = environment.lookup(selector);
+    const snapshot = environment.lookup(ownedSelector.selector);
     this._callback = callback;
     this._data = snapshot.data;
     this._environment = environment;
-    this._selector = selector;
+    this._ownedSelector = ownedSelector;
     this._subscription = environment.subscribe(snapshot, this._onChange);
   }
 
@@ -227,26 +233,29 @@ class SelectorResolver {
     return this._data;
   }
 
-  setSelector(selector: Selector): void {
+  setSelector(ownedSelector: OwnedReaderSelector): void {
     if (
       this._subscription != null &&
-      areEqualSelectors(selector, this._selector)
+      areEqualSelectors(ownedSelector, this._ownedSelector)
     ) {
       return;
     }
     this.dispose();
-    const snapshot = this._environment.lookup(selector);
+    const snapshot = this._environment.lookup(ownedSelector.selector);
     this._data = snapshot.data;
-    this._selector = selector;
+    this._ownedSelector = ownedSelector;
     this._subscription = this._environment.subscribe(snapshot, this._onChange);
   }
 
   setVariables(variables: Variables): void {
-    const selector = {
-      ...this._selector,
-      variables,
+    const ownedSelector = {
+      owner: null,
+      selector: {
+        ...this._ownedSelector.selector,
+        variables,
+      },
     };
-    this.setSelector(selector);
+    this.setSelector(ownedSelector);
   }
 
   _onChange = (snapshot: Snapshot): void => {
@@ -267,7 +276,7 @@ class SelectorListResolver {
 
   constructor(
     environment: Environment,
-    selectors: Array<Selector>,
+    selectors: Array<OwnedReaderSelector>,
     callback: () => void,
   ) {
     this._callback = callback;
@@ -306,7 +315,7 @@ class SelectorListResolver {
     return this._data;
   }
 
-  setSelectors(selectors: Array<Selector>): void {
+  setSelectors(selectors: Array<OwnedReaderSelector>): void {
     while (this._resolvers.length > selectors.length) {
       const resolver = this._resolvers.pop();
       resolver.dispose();

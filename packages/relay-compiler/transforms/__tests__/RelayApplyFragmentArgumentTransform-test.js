@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -16,28 +16,19 @@ const RelayApplyFragmentArgumentTransform = require('RelayApplyFragmentArgumentT
 const RelayParser = require('RelayParser');
 const RelayTestSchema = require('RelayTestSchema');
 
-const getGoldenMatchers = require('getGoldenMatchers');
+const {generateTestsFromFixtures} = require('RelayModernTestUtils');
 
 describe('RelayApplyFragmentArgumentTransform', () => {
-  beforeEach(() => {
-    expect.extend(getGoldenMatchers(__filename));
-  });
-
-  it('matches expected output', () => {
-    expect('fixtures/apply-fragment-argument-transform').toMatchGolden(text => {
+  generateTestsFromFixtures(
+    `${__dirname}/fixtures/apply-fragment-argument-transform`,
+    text => {
       const ast = RelayParser.parse(RelayTestSchema, text);
-      const context = ast.reduce(
-        (ctx, node) => ctx.add(node),
-        new GraphQLCompilerContext(RelayTestSchema),
-      );
-      const nextContext = RelayApplyFragmentArgumentTransform.transform(
-        context,
-      );
-      const documents = [];
-      nextContext.documents().forEach(doc => {
-        documents.push(GraphQLIRPrinter.print(doc));
-      });
-      return documents.join('\n');
-    });
-  });
+      return new GraphQLCompilerContext(RelayTestSchema)
+        .addAll(ast)
+        .applyTransforms([RelayApplyFragmentArgumentTransform.transform])
+        .documents()
+        .map(GraphQLIRPrinter.print)
+        .join('\n');
+    },
+  );
 });

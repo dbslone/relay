@@ -1,10 +1,9 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule getValidRelayQLTag
  * @flow
  * @format
  */
@@ -21,9 +20,13 @@ function getValidRelayQLTag(path: any): [any, ?string, ?string] {
   const tag = path.get('tag');
   const tagName = tag.matchesPattern('Relay.QL')
     ? 'Relay.QL'
-    : tag.matchesPattern('RelayClassic.QL')
-      ? 'RelayClassic.QL'
-      : tag.isIdentifier({name: 'RelayQL'}) ? 'RelayQL' : null;
+    : tag.matchesPattern('RelayClassic_DEPRECATED.QL')
+      ? 'RelayClassic_DEPRECATED.QL'
+      : tag.matchesPattern('RelayClassic.QL')
+        ? 'RelayClassic.QL'
+        : tag.isIdentifier({name: 'RelayQL'})
+          ? 'RelayQL'
+          : null;
   if (!tagName) {
     return [null, null, null];
   }

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -10,27 +10,27 @@
 
 'use strict';
 
-jest.enableAutomock();
+jest
+  .mock('../RelayMutation')
+  .mock('../RelayMutationQuery')
+  .mock('../RelayMutationDebugPrinter')
+  .mock('../../network/RelayNetworkLayer')
+  .useFakeTimers();
 
 require('configureForRelayOSS');
 
-jest.useFakeTimers();
-jest
-  .unmock('RelayMutationTransaction')
-  .unmock('RelayMutationTransactionStatus');
-
-const RelayClassic = require('RelayClassic');
-const RelayMutation = require('RelayMutation');
-const RelayMutationQuery = require('RelayMutationQuery');
-const RelayMutationTransactionStatus = require('RelayMutationTransactionStatus');
-const RelayStore = require('RelayStore');
-const RelayStoreData = require('RelayStoreData');
+const RelayClassic = require('../../RelayPublic');
+const RelayMutation = require('../RelayMutation');
+const RelayMutationQuery = require('../RelayMutationQuery');
+const RelayMutationTransactionStatus = require('../RelayMutationTransactionStatus');
+const RelayStore = require('../../store/RelayStore');
+const RelayStoreData = require('../../store/RelayStoreData');
 const RelayTestUtils = require('RelayTestUtils');
 
-const flattenRelayQuery = require('flattenRelayQuery');
-const fromGraphQL = require('fromGraphQL');
+const flattenRelayQuery = require('../../traversal/flattenRelayQuery');
+const fromGraphQL = require('../../query/fromGraphQL');
 
-const {ConnectionInterface} = require('RelayRuntime');
+const {ConnectionInterface} = require('relay-runtime');
 
 const {
   COLLISION_COMMIT_FAILED,

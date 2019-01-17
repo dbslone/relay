@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -10,10 +10,10 @@
 
 'use strict';
 
-jest.enableAutomock().unmock('GraphQLSegment');
+jest.mock('../../../store/RelayRecord');
 
-const GraphQLSegment = require('GraphQLSegment');
-const RelayRecord = require('RelayRecord');
+const GraphQLSegment = require('../GraphQLSegment');
+const RelayRecord = require('../../../store/RelayRecord');
 
 RelayRecord.getDataIDForObject.mockImplementation(function(data) {
   return data.__dataID__;

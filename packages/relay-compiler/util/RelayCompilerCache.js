@@ -1,15 +1,16 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule RelayCompilerCache
- * @flow
+ * @flow strict-local
  * @format
  */
 
 'use strict';
+
+const Profiler = require('../core/GraphQLCompilerProfiler');
 
 const crypto = require('crypto');
 const fs = require('fs');
@@ -21,7 +22,9 @@ const path = require('path');
  * serializable values should be used.
  */
 class RelayCompilerCache<T> {
-  _dir: string;
+  _name: string;
+  _cacheBreaker: string;
+  _dir: ?string = null;
 
   /**
    * @param name         Human readable identifier for the cache
@@ -29,28 +32,53 @@ class RelayCompilerCache<T> {
    *                     caches.
    */
   constructor(name: string, cacheBreaker: string) {
-    // Include username in the cache dir to avoid issues with directories being
-    // owned by a different user.
-    const username = os.userInfo().username;
-    const cacheID = crypto
-      .createHash('md5')
-      .update(cacheBreaker)
-      .update(username)
-      .digest('hex');
-    this._dir = path.join(os.tmpdir(), `${name}-${cacheID}`);
-    if (!fs.existsSync(this._dir)) {
-      fs.mkdirSync(this._dir);
+    this._name = name;
+    this._cacheBreaker = cacheBreaker;
+  }
+
+  _getFile(key: string): string {
+    if (this._dir == null) {
+      // Include username in the cache dir to avoid issues with directories being
+      // owned by a different user.
+      const username = os.userInfo().username;
+      const cacheID = crypto
+        .createHash('md5')
+        .update(this._cacheBreaker)
+        .update(username)
+        .digest('hex');
+      const dir = path.join(os.tmpdir(), `${this._name}-${cacheID}`);
+      if (!fs.existsSync(dir)) {
+        try {
+          fs.mkdirSync(dir);
+        } catch (error) {
+          if (error.code !== 'EEXIST') {
+            throw error;
+          }
+        }
+      }
+      this._dir = dir;
     }
+    return path.join(this._dir, key);
   }
 
   getOrCompute(key: string, compute: () => T): T {
-    const cacheFile = path.join(this._dir, key);
-    if (fs.existsSync(cacheFile)) {
-      return JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
-    }
-    const value = compute();
-    fs.writeFileSync(cacheFile, JSON.stringify(value), 'utf8');
-    return value;
+    return Profiler.run('RelayCompilerCache.getOrCompute', () => {
+      const cacheFile = this._getFile(key);
+      if (fs.existsSync(cacheFile)) {
+        try {
+          return JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+        } catch {
+          // ignore
+        }
+      }
+      const value = compute();
+      try {
+        fs.writeFileSync(cacheFile, JSON.stringify(value), 'utf8');
+      } catch {
+        // ignore
+      }
+      return value;
+    });
   }
 }
 

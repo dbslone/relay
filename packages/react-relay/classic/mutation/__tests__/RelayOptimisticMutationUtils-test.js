@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -12,13 +12,13 @@
 
 require('configureForRelayOSS');
 
-const RelayClassic = require('RelayClassic');
-const {ConnectionInterface} = require('RelayRuntime');
-const RelayOptimisticMutationUtils = require('RelayOptimisticMutationUtils');
-const RelayQuery = require('RelayQuery');
+const RelayClassic = require('../../RelayPublic');
+const {ConnectionInterface} = require('relay-runtime');
+const RelayOptimisticMutationUtils = require('../RelayOptimisticMutationUtils');
+const RelayQuery = require('../../query/RelayQuery');
 const RelayTestUtils = require('RelayTestUtils');
 
-const flattenRelayQuery = require('flattenRelayQuery');
+const flattenRelayQuery = require('../../traversal/flattenRelayQuery');
 
 describe('RelayOptimisticMutationUtils', () => {
   const {getVerbatimNode, matchers} = RelayTestUtils;

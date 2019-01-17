@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -12,15 +12,15 @@
 
 require('configureForRelayOSS');
 
-const QueryBuilder = require('QueryBuilder');
-const RelayClassic = require('RelayClassic');
-const RelayNodeInterface = require('RelayNodeInterface');
-const RelayQuery = require('RelayQuery');
+const QueryBuilder = require('../../query/QueryBuilder');
+const RelayClassic = require('../../RelayPublic');
+const RelayNodeInterface = require('../../interface/RelayNodeInterface');
+const RelayQuery = require('../../query/RelayQuery');
 const RelayTestUtils = require('RelayTestUtils');
 
-const {graphql, getClassicOperation} = require('RelayGraphQLTag');
-const generateRQLFieldAlias = require('generateRQLFieldAlias');
-const printRelayOSSQuery = require('printRelayOSSQuery');
+const {graphql, getClassicOperation} = require('../../query/RelayGraphQLTag');
+const generateRQLFieldAlias = require('../../query/generateRQLFieldAlias');
+const printRelayOSSQuery = require('../printRelayOSSQuery');
 
 describe('printRelayOSSQuery', () => {
   const {getNode} = RelayTestUtils;

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -14,9 +14,9 @@ require('configureForRelayOSS');
 
 jest.unmock('RelayFragmentPointer');
 
-const RelayClassic = require('RelayClassic');
-const RelayFragmentPointer = require('RelayFragmentPointer');
-const RelayRecordStore = require('RelayRecordStore');
+const RelayClassic = require('../../RelayPublic');
+const RelayFragmentPointer = require('../RelayFragmentPointer');
+const RelayRecordStore = require('../../store/RelayRecordStore');
 const RelayTestUtils = require('RelayTestUtils');
 
 describe('RelayFragmentPointer', () => {

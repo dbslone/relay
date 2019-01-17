@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -109,7 +109,20 @@ describe('scope', () => {
       const outerScope = {
         outerSize: {kind: 'Variable', name: 'var'},
       };
-      const innerScope = getFragmentScope(definitions, calls, outerScope);
+      const fragmentSpread = {
+        args: calls,
+        directives: [],
+        kind: 'FragmentSpread',
+        loc: {kind: 'Unknown'},
+        metadata: null,
+        name: '<name>',
+      };
+      const innerScope = getFragmentScope(
+        definitions,
+        calls,
+        outerScope,
+        fragmentSpread,
+      );
       expect(innerScope).toEqual({
         size: outerScope.outerSize,
       });
@@ -141,7 +154,20 @@ describe('scope', () => {
       const outerScope = {
         outerSize: {kind: 'Literal', value: 42},
       };
-      const innerScope = getFragmentScope(definitions, calls, outerScope);
+      const fragmentSpread = {
+        args: calls,
+        directives: [],
+        kind: 'FragmentSpread',
+        loc: {kind: 'Unknown'},
+        metadata: null,
+        name: '<name>',
+      };
+      const innerScope = getFragmentScope(
+        definitions,
+        calls,
+        outerScope,
+        fragmentSpread,
+      );
       expect(innerScope).toEqual({
         size: outerScope.outerSize,
       });
@@ -172,7 +198,20 @@ describe('scope', () => {
         },
       ];
       const outerScope = {};
-      const innerScope = getFragmentScope(definitions, calls, outerScope);
+      const fragmentSpread = {
+        args: calls,
+        directives: [],
+        kind: 'FragmentSpread',
+        loc: {kind: 'Unknown'},
+        metadata: null,
+        name: '<name>',
+      };
+      const innerScope = getFragmentScope(
+        definitions,
+        calls,
+        outerScope,
+        fragmentSpread,
+      );
       expect(innerScope).toEqual({
         size: literal,
       });
@@ -196,7 +235,20 @@ describe('scope', () => {
       ];
       const calls = [];
       const outerScope = {};
-      const innerScope = getFragmentScope(definitions, calls, outerScope);
+      const fragmentSpread = {
+        args: calls,
+        directives: [],
+        kind: 'FragmentSpread',
+        loc: {kind: 'Unknown'},
+        metadata: null,
+        name: '<name>',
+      };
+      const innerScope = getFragmentScope(
+        definitions,
+        calls,
+        outerScope,
+        fragmentSpread,
+      );
       expect(innerScope).toEqual({
         size: literal,
       });
@@ -219,9 +271,17 @@ describe('scope', () => {
       ];
       const calls = [];
       const outerScope = {};
+      const fragmentSpread = {
+        args: calls,
+        directives: [],
+        kind: 'FragmentSpread',
+        loc: {kind: 'Unknown'},
+        metadata: null,
+        name: '<name>',
+      };
       expect(() => {
-        getFragmentScope(definitions, calls, outerScope);
-      }).toThrow();
+        getFragmentScope(definitions, calls, outerScope, fragmentSpread);
+      }).toThrowErrorMatchingSnapshot();
     });
 
     /**
@@ -240,10 +300,25 @@ describe('scope', () => {
       ];
       const calls = [];
       const outerScope = {};
-      const innerScope = getFragmentScope(definitions, calls, outerScope);
+      const fragmentSpread = {
+        args: calls,
+        directives: [],
+        kind: 'FragmentSpread',
+        loc: {kind: 'Unknown'},
+        metadata: null,
+        name: '<name>',
+      };
+      const innerScope = getFragmentScope(
+        definitions,
+        calls,
+        outerScope,
+        fragmentSpread,
+      );
       expect(innerScope).toEqual({
         size: {
           kind: 'Variable',
+          metadata: null,
+          type: requiredIntType,
           variableName: 'size',
         },
       });
@@ -275,9 +350,66 @@ describe('scope', () => {
         },
       ];
       const outerScope = {};
+      const fragmentSpread = {
+        args: calls,
+        directives: [],
+        kind: 'FragmentSpread',
+        loc: {kind: 'Unknown'},
+        metadata: null,
+        name: '<name>',
+      };
       expect(() => {
-        getFragmentScope(definitions, calls, outerScope);
-      }).toThrow();
+        getFragmentScope(definitions, calls, outerScope, fragmentSpread);
+      }).toThrowErrorMatchingSnapshot();
+    });
+
+    /**
+     * defs: size: Int = 42
+     * args: unknown: 42
+     * parentScope: n/a
+     * => {size: 42} // ignore unknown variables
+     */
+    it('ignores unknown arguments', () => {
+      const definitions = [
+        {
+          kind: 'LocalArgumentDefinition',
+          name: 'size',
+          type: requiredIntType,
+          defaultValue: 42,
+        },
+      ];
+      const calls = [
+        {
+          kind: 'Argument',
+          name: 'unknown',
+          value: {
+            kind: 'Literal',
+            value: 42,
+          },
+          type: requiredIntType,
+        },
+      ];
+      const outerScope = {};
+      const fragmentSpread = {
+        args: calls,
+        directives: [],
+        kind: 'FragmentSpread',
+        loc: {kind: 'Unknown'},
+        metadata: null,
+        name: '<name>',
+      };
+      const innerScope = getFragmentScope(
+        definitions,
+        calls,
+        outerScope,
+        fragmentSpread,
+      );
+      expect(innerScope).toEqual({
+        size: {
+          kind: 'Literal',
+          value: 42,
+        },
+      });
     });
   });
 });

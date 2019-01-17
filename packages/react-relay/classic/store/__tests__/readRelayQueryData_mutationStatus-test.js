@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -10,13 +10,13 @@
 
 'use strict';
 
-const RelayClassic = require('RelayClassic');
-const RelayMutationTransaction = require('RelayMutationTransaction');
-const RelayMutationTransactionStatus = require('RelayMutationTransactionStatus');
-const RelayStoreData = require('RelayStoreData');
+const RelayClassic = require('../../RelayPublic');
+const RelayMutationTransaction = require('../../mutation/RelayMutationTransaction');
+const RelayMutationTransactionStatus = require('../../mutation/RelayMutationTransactionStatus');
+const RelayStoreData = require('../RelayStoreData');
 const RelayTestUtils = require('RelayTestUtils');
 
-const readRelayQueryData = require('readRelayQueryData');
+const readRelayQueryData = require('../readRelayQueryData');
 
 describe('readRelayQueryData (mutationStatus)', () => {
   const {getNode, writePayload} = RelayTestUtils;

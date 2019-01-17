@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -12,10 +12,10 @@
 
 require('configureForRelayOSS');
 
-const RelayClassic = require('RelayClassic');
+const Relay = require('../../RelayPublic');
 const RelayTestUtils = require('RelayTestUtils');
 
-const isCompatibleRelayFragmentType = require('isCompatibleRelayFragmentType');
+const isCompatibleRelayFragmentType = require('../isCompatibleRelayFragmentType');
 
 describe('isCompatibleRelayFragmentType', () => {
   const {getNode} = RelayTestUtils;
@@ -23,7 +23,7 @@ describe('isCompatibleRelayFragmentType', () => {
   it('returns false for different concrete types', () => {
     expect(
       isCompatibleRelayFragmentType(
-        getNode(RelayClassic.QL`fragment on User{id}`),
+        getNode(Relay.QL`fragment on User{id}`),
         'Page',
       ),
     ).toBe(false);
@@ -32,7 +32,7 @@ describe('isCompatibleRelayFragmentType', () => {
   it('returns true for equal concrete types', () => {
     expect(
       isCompatibleRelayFragmentType(
-        getNode(RelayClassic.QL`fragment on User{id}`),
+        getNode(Relay.QL`fragment on User{id}`),
         'User',
       ),
     ).toBe(true);
@@ -41,7 +41,7 @@ describe('isCompatibleRelayFragmentType', () => {
   it('returns true for abstract fragments', () => {
     expect(
       isCompatibleRelayFragmentType(
-        getNode(RelayClassic.QL`fragment on Node{id}`),
+        getNode(Relay.QL`fragment on Node{id}`),
         'User',
       ),
     ).toBe(true);
@@ -50,7 +50,7 @@ describe('isCompatibleRelayFragmentType', () => {
   it('returns true for client records', () => {
     expect(
       isCompatibleRelayFragmentType(
-        getNode(RelayClassic.QL`fragment on User{id}`),
+        getNode(Relay.QL`fragment on User{id}`),
         null,
       ),
     ).toBe(true);

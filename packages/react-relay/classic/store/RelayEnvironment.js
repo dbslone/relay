@@ -1,65 +1,70 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule RelayEnvironment
  * @flow
  * @format
  */
 
 'use strict';
 
-const GraphQLStoreQueryResolver = require('GraphQLStoreQueryResolver');
-const RelayClassicCore = require('RelayClassicCore');
-const RelayGraphQLMutation = require('RelayGraphQLMutation');
-const RelayMetaRoute = require('RelayMetaRoute');
-const RelayQuery = require('RelayQuery');
-const RelayQueryPath = require('RelayQueryPath');
-const RelayQueryRequest = require('RelayQueryRequest');
-const RelayStoreData = require('RelayStoreData');
-const RelayVariables = require('RelayVariables');
+const GraphQLStoreQueryResolver = require('../legacy/store/GraphQLStoreQueryResolver');
+const RelayClassicCore = require('../environment/RelayClassicCore');
+const RelayGraphQLMutation = require('../mutation/RelayGraphQLMutation');
+const RelayMetaRoute = require('../route/RelayMetaRoute');
+const RelayQuery = require('../query/RelayQuery');
+const RelayQueryPath = require('../query/RelayQueryPath');
+const RelayQueryRequest = require('../network/RelayQueryRequest');
+const RelayStoreData = require('./RelayStoreData');
+const RelayVariables = require('../query/RelayVariables');
 
-const deepFreeze = require('deepFreeze');
-const forEachRootCallArg = require('forEachRootCallArg');
-const generateForceIndex = require('generateForceIndex');
-const readRelayQueryData = require('readRelayQueryData');
-const recycleNodesInto = require('recycleNodesInto');
-const relayUnstableBatchedUpdates = require('relayUnstableBatchedUpdates');
+const forEachRootCallArg = require('../query/forEachRootCallArg');
+const generateForceIndex = require('../legacy/store/generateForceIndex');
+const readRelayQueryData = require('./readRelayQueryData');
+const relayUnstableBatchedUpdates = require('../tools/relayUnstableBatchedUpdates');
 const warning = require('warning');
 
-const {Observable} = require('RelayRuntime');
+const {Observable, deepFreeze, recycleNodesInto} = require('relay-runtime');
 
-import type {ConcreteOperationDefinition} from 'ConcreteQuery';
-import type {CacheConfig, Disposable} from 'RelayCombinedEnvironmentTypes';
 import type {
   Environment,
+  NormalizationSelector,
   OperationSelector,
-  UnstableEnvironmentCore,
-  Selector,
+  ReaderSelector,
   Snapshot,
-} from 'RelayEnvironmentTypes';
-import type {DataID, QueryPayload, RelayQuerySet} from 'RelayInternalTypes';
-import type RelayMutation from 'RelayMutation';
-import type RelayMutationTransaction from 'RelayMutationTransaction';
-import type {MutationCallback, QueryCallback} from 'RelayNetworkLayer';
-import type {UploadableMap} from 'RelayNetworkTypes';
-import type RelayQueryTracker from 'RelayQueryTracker';
-import type {SelectorStoreUpdater} from 'RelayStoreTypes';
-import type {TaskScheduler} from 'RelayTaskQueue';
+  UnstableEnvironmentCore,
+} from '../environment/RelayEnvironmentTypes';
+import type RelayMutation from '../mutation/RelayMutation';
+import type RelayMutationTransaction from '../mutation/RelayMutationTransaction';
+import type {
+  MutationCallback,
+  QueryCallback,
+} from '../network/RelayNetworkLayer';
+import type {ConcreteOperationDefinition} from '../query/ConcreteQuery';
+import type {QueryPayload, RelayQuerySet} from '../tools/RelayInternalTypes';
+import type {TaskScheduler} from '../tools/RelayTaskQueue';
 import type {
   Abortable,
   CacheManager,
   ChangeSubscription,
   NetworkLayer,
-  RelayMutationConfig,
   RelayMutationTransactionCommitCallbacks,
   ReadyStateChangeCallback,
   StoreReaderData,
   StoreReaderOptions,
+} from '../tools/RelayTypes';
+import type RelayQueryTracker from './RelayQueryTracker';
+import type {
+  CacheConfig,
+  DataID,
+  DeclarativeMutationConfig,
+  Disposable,
+  SelectorStoreUpdater,
+  UploadableMap,
   Variables,
-} from 'RelayTypes';
+} from 'relay-runtime';
 
 export type FragmentResolver = {
   dispose(): void,
@@ -73,25 +78,26 @@ export interface RelayEnvironmentInterface {
   forceFetch(
     querySet: RelayQuerySet,
     onReadyStateChange: ReadyStateChangeCallback,
-  ): Abortable,
+  ): Abortable;
   getFragmentResolver(
     fragment: RelayQuery.Fragment,
     onNext: () => void,
-  ): FragmentResolver,
-  getStoreData(): RelayStoreData,
+  ): FragmentResolver;
+  getStoreData(): RelayStoreData;
+  lookup(selector: ReaderSelector): Snapshot;
   primeCache(
     querySet: RelayQuerySet,
     onReadyStateChange: ReadyStateChangeCallback,
-  ): Abortable,
+  ): Abortable;
   read(
     node: RelayQuery.Node,
     dataID: DataID,
     options?: StoreReaderOptions,
-  ): ?StoreReaderData,
+  ): ?StoreReaderData;
   readQuery(
     root: RelayQuery.Root,
     options?: StoreReaderOptions,
-  ): Array<?StoreReaderData>,
+  ): Array<?StoreReaderData>;
 }
 
 /**
@@ -128,7 +134,7 @@ class RelayEnvironment implements Environment, RelayEnvironmentInterface {
     optimisticResponse,
     variables,
   }: {
-    configs: Array<RelayMutationConfig>,
+    configs: Array<DeclarativeMutationConfig>,
     operation: ConcreteOperationDefinition,
     optimisticResponse: Object,
     variables: Variables,
@@ -153,6 +159,10 @@ class RelayEnvironment implements Environment, RelayEnvironmentInterface {
         }
       },
     };
+  }
+
+  check(selector: NormalizationSelector): boolean {
+    return false;
   }
 
   commitPayload(
@@ -180,7 +190,7 @@ class RelayEnvironment implements Environment, RelayEnvironmentInterface {
    * and `subscribe()`. Note that `subscribe()` cannot use `lookup()` directly,
    * since the former may modify the result data before freezing it.
    */
-  _lookup(selector: Selector): Snapshot {
+  _lookup(selector: ReaderSelector): Snapshot {
     const fragment = RelayQuery.Fragment.create(
       selector.node,
       RelayMetaRoute.get('$RelayEnvironment'),
@@ -198,10 +208,11 @@ class RelayEnvironment implements Environment, RelayEnvironmentInterface {
       ...selector,
       data,
       seenRecords: (dataIDs: any),
+      isMissingData: false,
     };
   }
 
-  lookup(selector: Selector): Snapshot {
+  lookup(selector: ReaderSelector): Snapshot {
     const snapshot = this._lookup(selector);
     if (__DEV__) {
       deepFreezeSnapshot(snapshot);
@@ -219,7 +230,7 @@ class RelayEnvironment implements Environment, RelayEnvironmentInterface {
     variables,
     uploadables,
   }: {
-    configs: Array<RelayMutationConfig>,
+    configs: Array<DeclarativeMutationConfig>,
     onCompleted?: ?(response: ResponseType) => void,
     onError?: ?(error: Error) => void,
     operation: ConcreteOperationDefinition,
@@ -249,8 +260,9 @@ class RelayEnvironment implements Environment, RelayEnvironmentInterface {
             let error = transaction.getError();
             if (!error) {
               error = new Error(
-                `RelayEnvironment: Unknown error executing mutation ${operation
-                  .node.name}`,
+                `RelayEnvironment: Unknown error executing mutation ${
+                  operation.node.name
+                }`,
               );
             }
             onError(error);
@@ -319,7 +331,7 @@ class RelayEnvironment implements Environment, RelayEnvironmentInterface {
     };
   }
 
-  retain(selector: Selector): Disposable {
+  retain(selector: NormalizationSelector): Disposable {
     return {
       dispose() {},
     };
@@ -335,7 +347,7 @@ class RelayEnvironment implements Environment, RelayEnvironmentInterface {
     cacheConfig?: ?CacheConfig,
     onCompleted?: ?() => void,
     onError?: ?(error: Error) => void,
-    onNext?: ?(selector: Selector) => void,
+    onNext?: ?(selector: NormalizationSelector) => void,
     operation: OperationSelector,
   }): Disposable {
     let isDisposed = false;
@@ -348,7 +360,7 @@ class RelayEnvironment implements Environment, RelayEnvironmentInterface {
       operation.variables,
     );
     const request = new RelayQueryRequest(query);
-    request.then(
+    request.getPromise().then(
       payload => {
         if (isDisposed) {
           return;
@@ -377,21 +389,6 @@ class RelayEnvironment implements Environment, RelayEnvironmentInterface {
     return {dispose};
   }
 
-  streamQuery(config: {
-    cacheConfig?: ?CacheConfig,
-    onCompleted?: ?() => void,
-    onError?: ?(error: Error) => void,
-    onNext?: ?(selector: Selector) => void,
-    operation: OperationSelector,
-  }): Disposable {
-    warning(
-      false,
-      'environment.streamQuery() is deprecated. Update to the latest ' +
-        'version of react-relay, and use environment.execute().',
-    );
-    return this.sendQuery(config);
-  }
-
   execute({
     operation,
     cacheConfig,
@@ -400,7 +397,7 @@ class RelayEnvironment implements Environment, RelayEnvironmentInterface {
     operation: OperationSelector,
     cacheConfig?: ?CacheConfig,
     updater?: ?SelectorStoreUpdater,
-  }): Observable<Selector> {
+  }): Observable<NormalizationSelector> {
     return Observable.fromLegacy(observer =>
       this.sendQuery({operation, cacheConfig, ...observer}),
     );

@@ -1,10 +1,9 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule RelayFragmentSpecResolver
  * @flow
  * @format
  */
@@ -13,25 +12,24 @@
 
 const forEachObject = require('forEachObject');
 const invariant = require('invariant');
-const isScalarAndEqual = require('isScalarAndEqual');
 
-const {areEqualSelectors, getSelectorsFromObject} = require('RelaySelector');
+const {areEqualSelectors, getSelectorsFromObject} = require('./RelaySelector');
+const {isScalarAndEqual} = require('relay-runtime');
 
-import type {
-  Disposable,
-  FragmentSpecResolver,
-  FragmentSpecResults,
-  Props,
-  SelectorData,
-} from 'RelayCombinedEnvironmentTypes';
 import type {
   Environment,
   FragmentMap,
   RelayContext,
-  Selector,
+  ReaderSelector,
   Snapshot,
-} from 'RelayEnvironmentTypes';
-import type {Variables} from 'RelayTypes';
+} from './RelayEnvironmentTypes';
+import type {Disposable, Variables} from 'relay-runtime';
+import type {
+  FragmentSpecResolver,
+  FragmentSpecResults,
+  Props,
+  SelectorData,
+} from 'relay-runtime';
 
 type Resolvers = {[key: string]: ?(SelectorListResolver | SelectorResolver)};
 
@@ -48,7 +46,7 @@ type Resolvers = {[key: string]: ?(SelectorListResolver | SelectorResolver)};
  * recomputed the first time `resolve()` is called.
  */
 class RelayFragmentSpecResolver implements FragmentSpecResolver {
-  _callback: () => void;
+  _callback: ?() => void;
   _context: RelayContext;
   _data: Object;
   _fragments: FragmentMap;
@@ -60,7 +58,7 @@ class RelayFragmentSpecResolver implements FragmentSpecResolver {
     context: RelayContext,
     fragments: FragmentMap,
     props: Props,
-    callback: () => void,
+    callback?: () => void,
   ) {
     this._callback = callback;
     this._context = context;
@@ -104,6 +102,10 @@ class RelayFragmentSpecResolver implements FragmentSpecResolver {
       this._stale = false;
     }
     return this._data;
+  }
+
+  setCallback(callback: () => void): void {
+    this._callback = callback;
   }
 
   setProps(props: Props): void {
@@ -167,8 +169,14 @@ class RelayFragmentSpecResolver implements FragmentSpecResolver {
 
   _onChange = (): void => {
     this._stale = true;
-    this._callback();
+    if (typeof this._callback === 'function') {
+      this._callback();
+    }
   };
+
+  isLoading(): boolean {
+    return false;
+  }
 }
 
 /**
@@ -178,12 +186,12 @@ class SelectorResolver {
   _callback: () => void;
   _data: ?SelectorData;
   _environment: Environment;
-  _selector: Selector;
+  _selector: ReaderSelector;
   _subscription: ?Disposable;
 
   constructor(
     environment: Environment,
-    selector: Selector,
+    selector: ReaderSelector,
     callback: () => void,
   ) {
     const snapshot = environment.lookup(selector);
@@ -205,7 +213,7 @@ class SelectorResolver {
     return this._data;
   }
 
-  setSelector(selector: Selector): void {
+  setSelector(selector: ReaderSelector): void {
     if (
       this._subscription != null &&
       areEqualSelectors(selector, this._selector)
@@ -250,7 +258,7 @@ class SelectorListResolver {
 
   constructor(
     environment: Environment,
-    selectors: Array<Selector>,
+    selectors: Array<ReaderSelector>,
     callback: () => void,
   ) {
     this._callback = callback;
@@ -286,7 +294,7 @@ class SelectorListResolver {
     return this._data;
   }
 
-  setSelectors(selectors: Array<Selector>): void {
+  setSelectors(selectors: Array<ReaderSelector>): void {
     while (this._resolvers.length > selectors.length) {
       const resolver = this._resolvers.pop();
       resolver.dispose();

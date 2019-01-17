@@ -1,30 +1,29 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule RelayQL
  * @flow
  * @format
  */
 
 'use strict';
 
-const QueryBuilder = require('QueryBuilder');
-const RelayFragmentReference = require('RelayFragmentReference');
-const RelayRouteFragment = require('RelayRouteFragment');
+const QueryBuilder = require('./QueryBuilder');
+const RelayFragmentReference = require('./RelayFragmentReference');
+const RelayRouteFragment = require('./RelayRouteFragment');
 
-const generateConcreteFragmentID = require('generateConcreteFragmentID');
+const generateConcreteFragmentID = require('./generateConcreteFragmentID');
 const invariant = require('invariant');
 
 import type {
   ConcreteFragment,
   ConcreteFragmentDefinition,
   ConcreteOperationDefinition,
-} from 'ConcreteQuery';
-import type {VariableMapping} from 'RelayFragmentReference';
-import type {GraphQLTaggedNode} from 'RelayModernGraphQLTag';
+} from './ConcreteQuery';
+import type {VariableMapping} from './RelayFragmentReference';
+import type {GraphQLTaggedNode} from 'relay-runtime';
 
 export type RelayConcreteNode = mixed;
 
@@ -109,10 +108,10 @@ Object.assign(RelayQL, {
    * object equality checks to compare fragments (useful, for example, when
    * comparing two `Selector`s to see if they select the same data).
    */
-  __getClassicNode(taggedNode) {
+  __getClassicNode(taggedNode: GraphQLTaggedNode) {
     let concreteNode = (taggedNode: any)[CLASSIC_NODE];
     if (concreteNode == null) {
-      const fn = taggedNode.classic;
+      const fn = (taggedNode: any).classic;
       invariant(
         typeof fn === 'function',
         'RelayQL: Expected a graphql literal, got `%s`.\n' +
@@ -129,6 +128,7 @@ Object.assign(RelayQL, {
 
   __getClassicFragment(
     taggedNode: GraphQLTaggedNode,
+    isUnMasked: ?boolean,
   ): ConcreteFragmentDefinition {
     const concreteNode = this.__getClassicNode(taggedNode);
     const fragment = QueryBuilder.getFragmentDefinition(concreteNode);
@@ -140,6 +140,32 @@ Object.assign(RelayQL, {
         'See: https://facebook.github.io/relay/docs/babel-plugin-relay.html',
       concreteNode,
     );
+    if (isUnMasked) {
+      /*
+       * For a regular `Fragment` or `Field` node, its variables have been declared
+       * in the parent. However, since unmasked fragment is actually parsed as `FragmentSpread`,
+       * we need to manually hoist its arguments to the parent.
+       * In reality, we do not actually hoist the arguments because Babel transform is per file.
+       * Instead, we could put the `argumentDefinitions` in the `metadata` and resolve the variables
+       * when building the concrete fragment node.
+       */
+      const hoistedRootArgs: Array<string> = [];
+      fragment.argumentDefinitions.forEach(argDef => {
+        invariant(
+          argDef.kind === 'RootArgument',
+          'RelayQL: Cannot unmask fragment `%s`. Expected all the arguments are root argument' +
+            ' but get `%s`',
+          concreteNode.node.name,
+          argDef.name,
+        );
+        hoistedRootArgs.push(argDef.name);
+      });
+
+      fragment.node.metadata = {
+        ...concreteNode.node.metadata,
+        hoistedRootArgs,
+      };
+    }
     return fragment;
   },
 

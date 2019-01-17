@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -10,26 +10,29 @@
 
 'use strict';
 
-jest.mock('generateClientID').mock('warning');
+jest.mock('../../legacy/store/generateClientID').mock('warning');
 
 require('configureForRelayOSS');
 
-const GraphQLMutatorConstants = require('GraphQLMutatorConstants');
-const RelayClassic = require('RelayClassic');
-const RelayChangeTracker = require('RelayChangeTracker');
-const RelayMutationType = require('RelayMutationType');
-const RelayQueryTracker = require('RelayQueryTracker');
-const RelayQueryWriter = require('RelayQueryWriter');
-const RelayRecordStore = require('RelayRecordStore');
-const RelayRecordWriter = require('RelayRecordWriter');
+const RelayClassic = require('../../RelayPublic');
+const RelayChangeTracker = require('../../store/RelayChangeTracker');
+const RelayQueryTracker = require('../../store/RelayQueryTracker');
+const RelayQueryWriter = require('../../store/RelayQueryWriter');
+const RelayRecordStore = require('../../store/RelayRecordStore');
+const RelayRecordWriter = require('../../store/RelayRecordWriter');
 const RelayTestUtils = require('RelayTestUtils');
 
-const generateClientEdgeID = require('generateClientEdgeID');
-const writeRelayUpdatePayload = require('writeRelayUpdatePayload');
+const generateClientEdgeID = require('../../legacy/store/generateClientEdgeID');
+const writeRelayUpdatePayload = require('../writeRelayUpdatePayload');
 
-const {ConnectionInterface} = require('RelayRuntime');
+const {
+  ConnectionInterface,
+  MutationTypes,
+  RangeOperations,
+} = require('relay-runtime');
 
 const {CLIENT_MUTATION_ID} = ConnectionInterface.get();
+const {PREPEND, IGNORE} = RangeOperations;
 
 describe('writeRelayUpdatePayload()', () => {
   const {getNode, writePayload} = RelayTestUtils;
@@ -139,7 +142,7 @@ describe('writeRelayUpdatePayload()', () => {
       );
       const configs = [
         {
-          type: RelayMutationType.FIELDS_CHANGE,
+          type: MutationTypes.FIELDS_CHANGE,
           fieldIDs: {feedback: 'feedback_id'},
         },
       ];
@@ -187,7 +190,7 @@ describe('writeRelayUpdatePayload()', () => {
       );
       const configs = [
         {
-          type: RelayMutationType.FIELDS_CHANGE,
+          type: MutationTypes.FIELDS_CHANGE,
           fieldIDs: {feedback: 'feedback_id'},
         },
       ];
@@ -308,7 +311,7 @@ describe('writeRelayUpdatePayload()', () => {
       );
       const configs = [
         {
-          type: RelayMutationType.RANGE_DELETE,
+          type: MutationTypes.RANGE_DELETE,
           deletedIDFieldName: 'deletedCommentId',
           pathToConnection: ['feedback', 'topLevelComments'],
         },
@@ -395,7 +398,7 @@ describe('writeRelayUpdatePayload()', () => {
       );
       const configs = [
         {
-          type: RelayMutationType.RANGE_DELETE,
+          type: MutationTypes.RANGE_DELETE,
           deletedIDFieldName: 'deletedCommentId',
           pathToConnection: ['feedback', 'topLevelComments'],
         },
@@ -512,7 +515,7 @@ describe('writeRelayUpdatePayload()', () => {
       );
       const configs = [
         {
-          type: RelayMutationType.RANGE_DELETE,
+          type: MutationTypes.RANGE_DELETE,
           parentName: 'actor',
           parentID: '123',
           connectionName: 'friends',
@@ -668,7 +671,7 @@ describe('writeRelayUpdatePayload()', () => {
       );
       const configs = [
         {
-          type: RelayMutationType.RANGE_DELETE,
+          type: MutationTypes.RANGE_DELETE,
           deletedIDFieldName: 'deletedCommentId',
           pathToConnection: ['feedback', 'topLevelComments'],
         },
@@ -769,7 +772,7 @@ describe('writeRelayUpdatePayload()', () => {
       );
       const configs = [
         {
-          type: RelayMutationType.RANGE_DELETE,
+          type: MutationTypes.RANGE_DELETE,
           deletedIDFieldName: 'deletedCommentId',
           pathToConnection: ['feedback', 'topLevelComments'],
         },
@@ -948,7 +951,7 @@ describe('writeRelayUpdatePayload()', () => {
       );
       const configs = [
         {
-          type: RelayMutationType.NODE_DELETE,
+          type: MutationTypes.NODE_DELETE,
           deletedIDFieldName: 'deletedCommentId',
         },
       ];
@@ -1045,7 +1048,7 @@ describe('writeRelayUpdatePayload()', () => {
       );
       const configs = [
         {
-          type: RelayMutationType.NODE_DELETE,
+          type: MutationTypes.NODE_DELETE,
           deletedIDFieldName: 'deletedCommentId',
         },
       ];
@@ -1177,7 +1180,7 @@ describe('writeRelayUpdatePayload()', () => {
       );
       const configs = [
         {
-          type: RelayMutationType.NODE_DELETE,
+          type: MutationTypes.NODE_DELETE,
           deletedIDFieldName: 'deletedRequestIds',
         },
       ];
@@ -1245,7 +1248,7 @@ describe('writeRelayUpdatePayload()', () => {
       );
       const configs = [
         {
-          type: RelayMutationType.NODE_DELETE,
+          type: MutationTypes.NODE_DELETE,
           deletedIDFieldName: 'deletedRequestIds',
         },
       ];
@@ -1387,10 +1390,10 @@ describe('writeRelayUpdatePayload()', () => {
       );
       const configs = [
         {
-          type: RelayMutationType.RANGE_ADD,
+          type: MutationTypes.RANGE_ADD,
           connectionName: 'topLevelComments',
           edgeName: 'feedbackCommentEdge',
-          rangeBehaviors: {'': GraphQLMutatorConstants.PREPEND},
+          rangeBehaviors: {'': PREPEND},
         },
       ];
       const payload = {
@@ -1470,7 +1473,7 @@ describe('writeRelayUpdatePayload()', () => {
       );
       const configs = [
         {
-          type: RelayMutationType.RANGE_ADD,
+          type: MutationTypes.RANGE_ADD,
           connectionName: 'topLevelComments',
           edgeName: 'feedbackCommentEdge',
           rangeBehaviors: {'': null},
@@ -1564,10 +1567,10 @@ describe('writeRelayUpdatePayload()', () => {
       );
       const configs = [
         {
-          type: RelayMutationType.RANGE_ADD,
+          type: MutationTypes.RANGE_ADD,
           connectionName: 'topLevelComments',
           edgeName: 'feedbackCommentEdge',
-          rangeBehaviors: {'': GraphQLMutatorConstants.IGNORE},
+          rangeBehaviors: {'': IGNORE},
         },
       ];
 
@@ -1661,10 +1664,10 @@ describe('writeRelayUpdatePayload()', () => {
       );
       const configs = [
         {
-          type: RelayMutationType.RANGE_ADD,
+          type: MutationTypes.RANGE_ADD,
           connectionName: 'topLevelComments',
           edgeName: 'feedbackCommentEdge',
-          rangeBehaviors: {'': GraphQLMutatorConstants.PREPEND},
+          rangeBehaviors: {'': PREPEND},
         },
       ];
 
@@ -1793,10 +1796,10 @@ describe('writeRelayUpdatePayload()', () => {
       );
       const configs = [
         {
-          type: RelayMutationType.RANGE_ADD,
+          type: MutationTypes.RANGE_ADD,
           connectionName: 'topLevelComments',
           edgeName: 'feedbackCommentEdge',
-          rangeBehaviors: {'': GraphQLMutatorConstants.PREPEND},
+          rangeBehaviors: {'': PREPEND},
         },
       ];
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -10,19 +10,19 @@
 
 'use strict';
 
-jest.enableAutomock();
+jest
+  .mock('../../network/RelayNetworkLayer')
+  .mock('../../traversal/writeRelayQueryPayload')
+  .useFakeTimers();
 
 require('configureForRelayOSS');
 
-jest.useFakeTimers();
-jest.unmock('RelayPendingQueryTracker').unmock('RelayTaskQueue');
-
-const RelayClassic = require('RelayClassic');
-const RelayFetchMode = require('RelayFetchMode');
-const RelayStoreData = require('RelayStoreData');
+const RelayClassic = require('../../RelayPublic');
+const RelayFetchMode = require('../RelayFetchMode');
+const RelayStoreData = require('../RelayStoreData');
 const RelayTestUtils = require('RelayTestUtils');
 
-const writeRelayQueryPayload = require('writeRelayQueryPayload');
+const writeRelayQueryPayload = require('../../traversal/writeRelayQueryPayload');
 
 describe('RelayPendingQueryTracker', () => {
   let pendingQueryTracker;

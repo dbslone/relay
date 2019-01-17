@@ -1,49 +1,36 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule RelaySkipHandleFieldTransform
- * @flow
+ * @flow strict-local
  * @format
  */
 
 'use strict';
 
-const {
-  CompilerContext,
-  IRTransformer,
-} = require('../graphql-compiler/GraphQLCompilerPublic');
+const CompilerContext = require('../core/GraphQLCompilerContext');
+const IRTransformer = require('../core/GraphQLIRTransformer');
 
-import type {
-  LinkedField,
-  ScalarField,
-} from '../graphql-compiler/GraphQLCompilerPublic';
-import type {GraphQLSchema} from 'graphql';
-
-type State = true;
+import type {Field} from '../core/GraphQLIR';
 
 /**
  * A transform that removes field `handles`. Intended for use when e.g.
  * printing queries to send to a GraphQL server.
  */
-function transform(
+function relaySkipHandleFieldTransform(
   context: CompilerContext,
-  schema: GraphQLSchema,
 ): CompilerContext {
-  return IRTransformer.transform(
-    context,
-    {
-      LinkedField: visitField,
-      ScalarField: visitField,
-    },
-    () => true,
-  );
+  return IRTransformer.transform(context, {
+    LinkedField: visitField,
+    MatchField: visitField,
+    ScalarField: visitField,
+  });
 }
 
-function visitField<F: LinkedField | ScalarField>(field: F, state: State): ?F {
-  const transformedNode = this.traverse(field, state);
+function visitField<F: Field>(field: F): ?F {
+  const transformedNode = this.traverse(field);
   if (transformedNode.handles) {
     return {
       ...transformedNode,
@@ -53,4 +40,6 @@ function visitField<F: LinkedField | ScalarField>(field: F, state: State): ?F {
   return transformedNode;
 }
 
-module.exports = {transform};
+module.exports = {
+  transform: relaySkipHandleFieldTransform,
+};

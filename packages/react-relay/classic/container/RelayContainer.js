@@ -1,10 +1,9 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule RelayContainer
  * @flow
  * @format
  */
@@ -12,51 +11,54 @@
 'use strict';
 
 const ErrorUtils = require('ErrorUtils');
-const PropTypes = require('prop-types');
 const React = require('React');
-const RelayContainerComparators = require('RelayContainerComparators');
-const RelayContainerProxy = require('RelayContainerProxy');
-const RelayFragmentPointer = require('RelayFragmentPointer');
-const RelayFragmentReference = require('RelayFragmentReference');
-const RelayMetaRoute = require('RelayMetaRoute');
-const RelayMutationTransaction = require('RelayMutationTransaction');
-const RelayProfiler = require('RelayProfiler');
-const RelayPropTypes = require('RelayPropTypes');
-const RelayQuery = require('RelayQuery');
-const RelayRecord = require('RelayRecord');
-const RelayRecordStatusMap = require('RelayRecordStatusMap');
+const ReactRelayContext = require('../../modern/ReactRelayContext');
+const RelayContainerComparators = require('./RelayContainerComparators');
+const RelayContainerProxy = require('./RelayContainerProxy');
+const RelayFragmentPointer = require('../query/RelayFragmentPointer');
+const RelayFragmentReference = require('../query/RelayFragmentReference');
+const RelayMetaRoute = require('../route/RelayMetaRoute');
+const RelayMutationTransaction = require('../mutation/RelayMutationTransaction');
+const RelayQuery = require('../query/RelayQuery');
+const RelayRecord = require('../store/RelayRecord');
+const RelayRecordStatusMap = require('../store/RelayRecordStatusMap');
 
 const areEqual = require('areEqual');
-const buildRQL = require('buildRQL');
+const buildRQL = require('../query/buildRQL');
 const filterObject = require('filterObject');
 const forEachObject = require('forEachObject');
 const invariant = require('invariant');
-const isClassicRelayContext = require('isClassicRelayContext');
-const relayUnstableBatchedUpdates = require('relayUnstableBatchedUpdates');
+const isClassicRelayContext = require('../store/isClassicRelayContext');
+const makeLegacyStringishComponentRef = require('../util/makeLegacyStringishComponentRef');
+const readContext = require('../../modern/readContext');
+const relayUnstableBatchedUpdates = require('../tools/relayUnstableBatchedUpdates');
 const shallowEqual = require('shallowEqual');
 const warning = require('warning');
 
-const {getComponentName, getReactComponent} = require('RelayContainerUtils');
+const {getComponentName} = require('../../modern/ReactRelayContainerUtils');
+const {getReactComponent} = require('./RelayClassicContainerUtils');
+const {RelayProfiler} = require('relay-runtime');
 
-import type {ConcreteFragment} from 'ConcreteQuery';
-import type {FragmentResolver, ClassicRelayContext} from 'RelayEnvironment';
-import type {DataID, RelayQuerySet} from 'RelayInternalTypes';
-import type {RelayQueryConfigInterface} from 'RelayQueryConfig';
+import type {RelayQueryConfigInterface} from '../query-config/RelayQueryConfig';
+import type {ConcreteFragment} from '../query/ConcreteQuery';
+import type {RelayQLFragmentBuilder} from '../query/buildRQL';
+import type {
+  FragmentResolver,
+  ClassicRelayContext,
+} from '../store/RelayEnvironment';
+import type {RelayQuerySet} from '../tools/RelayInternalTypes';
 import type {
   Abortable,
   ComponentReadyStateChangeCallback,
-  RelayContainer as RelayContainerClass,
   RelayProp,
-  Variables,
-} from 'RelayTypes';
-import type {RelayQLFragmentBuilder} from 'buildRQL';
+} from '../tools/RelayTypes';
+import type {DataID, Variables} from 'relay-runtime';
 
 type FragmentPointer = {
   fragment: RelayQuery.Fragment,
   dataIDs: DataID | Array<DataID>,
 };
-type RelayContainerContext = {
-  relay: ClassicRelayContext,
+type ReactRelayContextType = ClassicRelayContext & {
   route: RelayQueryConfigInterface,
   useFakeData: boolean,
 };
@@ -74,12 +76,6 @@ export type RelayContainerSpec = {
 };
 export type RelayLazyContainer = Function;
 
-const containerContextTypes = {
-  relay: RelayPropTypes.ClassicRelay,
-  route: RelayPropTypes.QueryConfig.isRequired,
-  useFakeData: PropTypes.bool,
-};
-
 /**
  * @public
  *
@@ -96,7 +92,7 @@ const containerContextTypes = {
 function createContainerComponent(
   Component: React.ComponentType<any>,
   spec: RelayContainerSpec,
-): RelayContainerClass {
+): $FlowFixMe {
   const ComponentClass = getReactComponent(Component);
   const componentName = getComponentName(Component);
   const containerName = getContainerName(Component);
@@ -125,17 +121,19 @@ function createContainerComponent(
       request: Abortable,
     };
 
-    constructor(props, context) {
-      super(props, context);
-
-      const {relay, route} = context;
+    constructor(props) {
+      super(props);
+      const {route} = props.__relayContext;
       invariant(
-        isClassicRelayContext(relay),
+        isClassicRelayContext({
+          variables: props.__relayContext.variables,
+          environment: props.__relayContext.environment,
+        }),
         'RelayContainer: `%s` was rendered with invalid Relay context `%s`. ' +
           'Make sure the `relay` property on the React context conforms to the ' +
           '`RelayEnvironment` interface.',
         containerName,
-        relay,
+        props.__relayContext,
       );
       invariant(
         route && typeof route.name === 'string',
@@ -156,9 +154,9 @@ function createContainerComponent(
         queryData: {},
         rawVariables: {},
         relayProp: {
-          applyUpdate: this.context.relay.environment.applyUpdate,
-          commitUpdate: this.context.relay.environment.commitUpdate,
-          environment: this.context.relay.environment,
+          applyUpdate: this.props.__relayContext.environment.applyUpdate,
+          commitUpdate: this.props.__relayContext.environment.commitUpdate,
+          environment: this.props.__relayContext.environment,
           forceFetch: this.forceFetch.bind(this),
           getPendingTransactions: this.getPendingTransactions.bind(this),
           hasFragmentData: this.hasFragmentData.bind(this),
@@ -210,11 +208,11 @@ function createContainerComponent(
     } {
       const fragmentPointers = {};
       const querySet = {};
-      const storeData = this.context.relay.environment.getStoreData();
+      const storeData = this.props.__relayContext.environment.getStoreData();
       fragmentNames.forEach(fragmentName => {
         const fragment = getFragment(
           fragmentName,
-          this.context.route,
+          this.props.__relayContext.route,
           variables,
         );
         const queryData = this.state.queryData[fragmentName];
@@ -232,9 +230,6 @@ function createContainerComponent(
           );
           const dataIDs = [];
           queryData.forEach((data, ii) => {
-            /* $FlowFixMe(>=0.36.0) Flow error detected
-             * during the deploy of Flow v0.36.0. To see the error, remove this
-             * comment and run Flow */
             const dataID = RelayRecord.getDataIDForObject(data);
             if (dataID) {
               querySet[
@@ -247,8 +242,6 @@ function createContainerComponent(
             fragmentPointer = {fragment, dataIDs};
           }
         } else {
-          /* $FlowFixMe(>=0.19.0) - queryData is mixed but getID expects Object
-           */
           const dataID = RelayRecord.getDataIDForObject(queryData);
           if (dataID) {
             fragmentPointer = {
@@ -280,7 +273,9 @@ function createContainerComponent(
       const rawVariables = mergeVariables(prevVariables, partialVariables);
       let nextVariables = rawVariables;
       if (prepareVariables) {
-        const metaRoute = RelayMetaRoute.get(this.context.route.name);
+        const metaRoute = RelayMetaRoute.get(
+          this.props.__relayContext.route.name,
+        );
         nextVariables = prepareVariables(rawVariables, metaRoute);
         validateVariables(initialVariables, nextVariables);
       }
@@ -315,7 +310,7 @@ function createContainerComponent(
           // and `fragmentPointers` will be empty, and `nextVariables` will be
           // equal to `lastVariables`.
           this._fragmentPointers = fragmentPointers;
-          this._updateFragmentResolvers(this.context.relay.environment);
+          this._updateFragmentResolvers(this.props.__relayContext.environment);
           const queryData = this._getQueryData(this.props);
           partialState = {
             queryData,
@@ -365,11 +360,11 @@ function createContainerComponent(
       const current = {
         rawVariables,
         request: forceFetch
-          ? this.context.relay.environment.forceFetch(
+          ? this.props.__relayContext.environment.forceFetch(
               querySet,
               onReadyStateChange,
             )
-          : this.context.relay.environment.primeCache(
+          : this.props.__relayContext.environment.primeCache(
               querySet,
               onReadyStateChange,
             ),
@@ -387,7 +382,7 @@ function createContainerComponent(
         'RelayContainer.hasOptimisticUpdate(): Expected a record in `%s`.',
         componentName,
       );
-      return this.context.relay.environment
+      return this.props.__relayContext.environment
         .getStoreData()
         .hasOptimisticUpdate(dataID);
     }
@@ -402,7 +397,7 @@ function createContainerComponent(
         'RelayContainer.getPendingTransactions(): Expected a record in `%s`.',
         componentName,
       );
-      const storeData = this.context.relay.environment.getStoreData();
+      const storeData = this.props.__relayContext.environment.getStoreData();
       const mutationIDs = storeData.getClientMutationIDs(dataID);
       if (!mutationIDs) {
         return null;
@@ -432,7 +427,7 @@ function createContainerComponent(
       );
       const fragment = getDeferredFragment(
         fragmentReference,
-        this.context,
+        this.props.__relayContext,
         this.state.relayProp.variables,
       );
       invariant(
@@ -441,7 +436,7 @@ function createContainerComponent(
           'fragment. Ensure that there are no failing `if` or `unless` ' +
           'conditions.',
       );
-      const storeData = this.context.relay.environment.getStoreData();
+      const storeData = this.props.__relayContext.environment.getStoreData();
       return storeData
         .getCachedStore()
         .hasFragmentData(dataID, fragment.getCompositeHash());
@@ -456,31 +451,40 @@ function createContainerComponent(
       );
     }
 
-    componentWillMount(): void {
-      if (this.context.route.useMockData) {
+    UNSAFE_componentWillMount(): void {
+      if (this.props.__relayContext.route.useMockData) {
         return;
       }
       this.setState(
-        this._initialize(this.props, this.context, initialVariables, null),
+        this._initialize(
+          this.props,
+          this.props.__relayContext,
+          initialVariables,
+          null,
+        ),
       );
     }
 
-    componentWillReceiveProps(
-      nextProps: Object,
-      maybeNextContext?: RelayContainerContext,
-    ): void {
-      const nextContext = maybeNextContext;
-      invariant(nextContext, 'RelayContainer: Expected a context to be set.');
-      if (nextContext.route.useMockData) {
+    UNSAFE_componentWillReceiveProps(nextProps: Object): void {
+      invariant(
+        nextProps.__relayContext,
+        'RelayContainer: Expected a context to be set.',
+      );
+      if (nextProps.__relayContext.route.useMockData) {
         return;
       }
       this.setState(state => {
-        if (this.context.relay !== nextContext.relay) {
+        if (
+          this.props.__relayContext.environment !==
+            nextProps.__relayContext.environment ||
+          this.props.__relayContext.variables !==
+            nextProps.__relayContext.variables
+        ) {
           this._cleanup();
         }
         return this._initialize(
           nextProps,
-          nextContext,
+          nextProps.__relayContext,
           resetPropOverridesForVariables(spec, nextProps, state.rawVariables),
           state.rawVariables,
         );
@@ -494,7 +498,7 @@ function createContainerComponent(
 
     _initialize(
       props: Object,
-      context: RelayContainerContext,
+      context: ReactRelayContextType,
       propVariables: Variables,
       prevVariables: ?Variables,
     ): {
@@ -520,7 +524,7 @@ function createContainerComponent(
         nextVariables,
         prevVariables,
       );
-      this._updateFragmentResolvers(context.relay.environment);
+      this._updateFragmentResolvers(context.environment);
       return {
         queryData: this._getQueryData(props),
         rawVariables,
@@ -588,7 +592,7 @@ function createContainerComponent(
 
     _updateFragmentPointers(
       props: Object,
-      context: RelayContainerContext,
+      context: ReactRelayContextType,
       variables: Variables,
       prevVariables: ?Variables,
     ): void {
@@ -767,11 +771,7 @@ function createContainerComponent(
       return queryData;
     }
 
-    shouldComponentUpdate(
-      nextProps: Object,
-      nextState: any,
-      nextContext: any,
-    ): boolean {
+    shouldComponentUpdate(nextProps: Object, nextState: any): boolean {
       if (specShouldComponentUpdate) {
         return specShouldComponentUpdate();
       }
@@ -783,22 +783,26 @@ function createContainerComponent(
       }
 
       if (
-        this.context.relay !== nextContext.relay ||
-        this.context.route !== nextContext.route
+        this.props.__relayContext.environment !==
+          nextProps.__relayContext.environment ||
+        this.props.__relayContext.variables !==
+          nextProps.__relayContext.variables ||
+        this.props.__relayContext.route !== nextProps.__relayContext.route
       ) {
         return true;
       }
 
-      if (this.context.route.useMockData) {
+      if (this.props.__relayContext.route.useMockData) {
         return true;
       }
-
+      const {__relayContext, ...props} = this.props;
+      const {__relayContext: _, ...actualNextProps} = nextProps;
       const fragmentPointers = this._fragmentPointers;
       return (
         !RelayContainerComparators.areNonQueryPropsEqual(
           fragments,
-          this.props,
-          nextProps,
+          props,
+          actualNextProps,
         ) ||
         (fragmentPointers &&
           !RelayContainerComparators.areQueryResultsEqual(
@@ -819,7 +823,7 @@ function createContainerComponent(
           <ComponentClass
             {...this.props}
             {...this.state.queryData}
-            ref={'component'} // eslint-disable-line react/no-string-refs
+            ref={this._legacyStringishRef}
             relay={this.state.relayProp}
           />
         );
@@ -833,6 +837,9 @@ function createContainerComponent(
         });
       }
     }
+
+    // @TODO (T28161354) Remove this once string ref usage is gone.
+    _legacyStringishRef = makeLegacyStringishComponentRef(this, componentName);
   }
 
   function getFragment(
@@ -859,7 +866,6 @@ function createContainerComponent(
   }
 
   initializeProfiler(RelayContainer);
-  RelayContainer.contextTypes = containerContextTypes;
   RelayContainer.displayName = containerName;
   RelayContainerProxy.proxyMethods(RelayContainer, Component);
 
@@ -908,11 +914,12 @@ function resetPropOverridesForVariables(
   return variables;
 }
 
-function initializeProfiler(RelayContainer: RelayContainerClass): void {
+function initializeProfiler(RelayContainer: $FlowFixMe): void {
   RelayProfiler.instrumentMethods(RelayContainer.prototype, {
-    componentWillMount: 'RelayContainer.prototype.componentWillMount',
-    componentWillReceiveProps:
-      'RelayContainer.prototype.componentWillReceiveProps',
+    UNSAFE_componentWillMount:
+      'RelayContainer.prototype.UNSAFE_componentWillMount',
+    UNSAFE_componentWillReceiveProps:
+      'RelayContainer.prototype.UNSAFE_componentWillReceiveProps',
     shouldComponentUpdate: 'RelayContainer.prototype.shouldComponentUpdate',
   });
 }
@@ -1044,24 +1051,52 @@ function create(
   const initialVariables = spec.initialVariables || {};
   const prepareVariables = spec.prepareVariables;
 
+  let environment;
   let Container;
-  function ContainerConstructor(props, context) {
-    if (!Container) {
+  function ContainerConstructor(props) {
+    if (Container == null || props.__relayContext.environment !== environment) {
+      environment = props.__relayContext.environment;
       Container = createContainerComponent(Component, spec);
     }
-    return new Container(props, context);
+    return new Container(props);
   }
 
-  ContainerConstructor.getFragmentNames = () => fragmentNames;
-  ContainerConstructor.hasFragment = fragmentName => !!fragments[fragmentName];
-  ContainerConstructor.hasVariable = variableName =>
+  function forwardRef(props, ref) {
+    const context = readContext(ReactRelayContext);
+    invariant(
+      context,
+      `${containerName} tried to render a context that was ` +
+        `not valid this means that ${containerName} was rendered outside of a ` +
+        'query renderer.',
+    );
+    return (
+      <ContainerConstructor
+        {...props}
+        __relayContext={context}
+        ref={props.ref || ref}
+      />
+    );
+  }
+  const ForwardContainer = React.forwardRef(forwardRef);
+
+  /* $FlowFixMe(>=0.89.0 site=www,mobile,react_native_fb,oss) Suppressing errors
+   * found while preparing to upgrade to 0.89.0 */
+  ForwardContainer.getFragmentNames = () => fragmentNames;
+  /* $FlowFixMe(>=0.89.0 site=www,mobile,react_native_fb,oss) Suppressing errors
+   * found while preparing to upgrade to 0.89.0 */
+  ForwardContainer.hasFragment = fragmentName => !!fragments[fragmentName];
+  /* $FlowFixMe(>=0.89.0 site=www,mobile,react_native_fb,oss) Suppressing errors
+   * found while preparing to upgrade to 0.89.0 */
+  ForwardContainer.hasVariable = variableName =>
     Object.prototype.hasOwnProperty.call(initialVariables, variableName);
 
   /**
    * Retrieves a reference to the fragment by name. An optional second argument
    * can be supplied to override the component's default variables.
    */
-  ContainerConstructor.getFragment = function(
+  /* $FlowFixMe(>=0.89.0 site=www,mobile,react_native_fb,oss) Suppressing errors
+   * found while preparing to upgrade to 0.89.0 */
+  ForwardContainer.getFragment = function(
     fragmentName: string,
     variableMapping?: Variables,
   ): RelayFragmentReference {
@@ -1103,11 +1138,12 @@ function create(
     );
   };
 
-  ContainerConstructor.contextTypes = containerContextTypes;
-  ContainerConstructor.displayName = containerName;
-  ContainerConstructor.moduleName = (null: ?string);
+  ForwardContainer.displayName = containerName;
+  /* $FlowFixMe(>=0.89.0 site=www,mobile,react_native_fb,oss) Suppressing errors
+   * found while preparing to upgrade to 0.89.0 */
+  ForwardContainer.moduleName = (null: ?string);
 
-  return ContainerConstructor;
+  return ForwardContainer;
 }
 
 /**

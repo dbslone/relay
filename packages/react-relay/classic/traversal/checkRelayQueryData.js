@@ -1,29 +1,27 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule checkRelayQueryData
  * @flow
  * @format
  */
 
 'use strict';
 
-const RelayClassicRecordState = require('RelayClassicRecordState');
-const RelayProfiler = require('RelayProfiler');
-const RelayQueryVisitor = require('RelayQueryVisitor');
+const RelayClassicRecordState = require('../store/RelayClassicRecordState');
+const RelayQueryVisitor = require('../query/RelayQueryVisitor');
 
-const forEachRootCallArg = require('forEachRootCallArg');
-const isCompatibleRelayFragmentType = require('isCompatibleRelayFragmentType');
+const forEachRootCallArg = require('../query/forEachRootCallArg');
+const isCompatibleRelayFragmentType = require('../tools/isCompatibleRelayFragmentType');
 
-const {ConnectionInterface} = require('RelayRuntime');
+const {ConnectionInterface, RelayProfiler} = require('relay-runtime');
 
-import type {DataID} from 'RelayInternalTypes';
-import type RelayQuery from 'RelayQuery';
-import type RelayRecordStore from 'RelayRecordStore';
-import type {RangeInfo} from 'RelayRecordStore';
+import type RelayQuery from '../query/RelayQuery';
+import type RelayRecordStore from '../store/RelayRecordStore';
+import type {RangeInfo} from '../store/RelayRecordStore';
+import type {DataID} from 'relay-runtime';
 
 type CheckerState = {
   dataID: ?DataID,

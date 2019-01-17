@@ -1,10 +1,9 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @providesModule ReactRelayFragmentMockRenderer
  * @flow
  * @format
  */
@@ -12,31 +11,18 @@
 'use strict';
 
 const React = require('React');
-const RelayPropTypes = require('RelayPropTypes');
+const ReactRelayContext = require('./ReactRelayContext');
 
-class ReactRelayFragmentMockRenderer extends React.Component<Object> {
-  mockContext: any;
-
-  static childContextTypes = {
-    relay: RelayPropTypes.Relay,
-  };
-  constructor(props: Object) {
-    super();
-    this.mockContext = {
-      relay: {
+function ReactRelayFragmentMockRenderer(props: Object) {
+  return (
+    <ReactRelayContext.Provider
+      value={{
         environment: props.environment,
         variables: {},
-      },
-    };
-  }
-
-  getChildContext() {
-    return this.mockContext;
-  }
-
-  render() {
-    return this.props.render();
-  }
+      }}>
+      {props.render()}
+    </ReactRelayContext.Provider>
+  );
 }
 
 module.exports = ReactRelayFragmentMockRenderer;

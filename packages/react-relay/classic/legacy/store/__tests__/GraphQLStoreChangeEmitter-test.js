@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -10,14 +10,11 @@
 
 'use strict';
 
-jest
-  .enableAutomock()
-  .unmock('GraphQLStoreChangeEmitter')
-  .useFakeTimers();
+jest.mock('../GraphQLStoreRangeUtils').useFakeTimers();
 
 const ErrorUtils = require('ErrorUtils');
-const GraphQLStoreChangeEmitter = require('GraphQLStoreChangeEmitter');
-const GraphQLStoreRangeUtils = require('GraphQLStoreRangeUtils');
+const GraphQLStoreChangeEmitter = require('../GraphQLStoreChangeEmitter');
+const GraphQLStoreRangeUtils = require('../GraphQLStoreRangeUtils');
 
 describe('GraphQLStoreChangeEmitter', () => {
   let changeEmitter;
@@ -35,7 +32,7 @@ describe('GraphQLStoreChangeEmitter', () => {
     ErrorUtils.applyWithGuard = jest.fn(callback => {
       try {
         callback();
-      } catch (guarded) {}
+      } catch {}
     });
     mockCallback = jest.fn();
   });
